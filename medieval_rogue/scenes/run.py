@@ -5,6 +5,8 @@ from ..scene_manager import Scene
 from ..entities.player import Player
 from ..entities.projectile import Projectile
 from ..entities.enemy import Enemy, ENEMY_TYPES
+from ..dungeon.generation import generate_floor, spawn_enemies_for_room
+from ..dungeon.room import Room
 
 
 class RunScene(Scene):
@@ -15,7 +17,25 @@ class RunScene(Scene):
         self.projectiles: list[Projectile] = []
         self.enemies: list[Enemy] = []
         self.e_projectiles: list[Projectile] = []
-        self.enemies.append(ENEMY_TYPES[0](240, 90))    # temporary spawn to test
+        self.floor_i = 0
+        self.room_i = 0
+        self.rooms: list[Room] = generate_floor(self.floor_i).rooms
+        self.enemies.clear(); self.e_projectiles.clear()
+        self._enter_room(self.rooms[self.room_i])
+        self.item_available = None
+        self.boss = None
+        
+    def _enter_room(self, room: Room):
+        import random
+        self.enemies.clear(); self.e_projectiles.clear(); self.item_available = None; self.boss = None
+        if room.type == "combat":
+            rng = random.Random()
+            for cls, (x,y) in spawn_enemies_for_room(rng):
+                self.enemies.append(cls(x,y))
+        elif room.type == "item":
+            pass
+        elif room.type == "boss":
+            pass
     
     def handle_event(self, e: pg.event.Event) -> None:
         if e.type == pg.KEYDOWN and e.key == pg.K_ESCAPE:
@@ -59,6 +79,7 @@ class RunScene(Scene):
     
     def draw(self, surf: pg.Surface) -> None:
         surf.fill((26,22,32))
+        self.rooms[self.room_i].draw(surf)
         for p in self.projectiles: p.draw(surf)
         self.player.draw(surf)
         for e in self.enemies: e.draw(surf)
