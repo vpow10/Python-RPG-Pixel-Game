@@ -98,7 +98,8 @@ class RunScene(Scene):
         # Enemy touch vs player
         for e in self.enemies:
             if self.player.rect().colliderect(e.rect()):
-                self.player.hp -= e.touch_damage
+                # self.player.hp -= e.touch_damage
+                self.player.hp -= 0
 
         # Boss 
         if self.boss:
@@ -114,13 +115,13 @@ class RunScene(Scene):
                     self.message = "Boss defeated! Press N..."
         
         # Room clearance
-        if not self.enemies:
-            self.score += S.SCORE_PER_ROOM
+        if not self.boss and not self.enemies and not self.item_available and not self.room_cleared:
             self.room_cleared = True
-            self.message = "Room cleared! Press N..."
+            self.score += S.SCORE_PER_ROOM
+            self.message = "Room cleared! Press N for next room."
         else:
-            self.room_cleared = False
-        
+            self.message = ""
+            
         # Time decay
         self.time_decay += dt
         while self.time_decay >= 1.0:
