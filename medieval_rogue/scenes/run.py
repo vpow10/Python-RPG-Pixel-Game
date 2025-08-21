@@ -9,6 +9,7 @@ from ..dungeon.generation import generate_floor, spawn_enemies_for_room
 from ..dungeon.room import Room
 from ..items.basic_items import Item, ITEMS
 from ..entities.boss import BOSSES
+from ..ui.hud import draw_hud
 
 
 class RunScene(Scene):
@@ -29,6 +30,8 @@ class RunScene(Scene):
         self.message = ""
         self.room_cleared = False
         self.item_available: Item | None = None
+        self.score = 10
+        self.time_decay = 0.0
         
     def _enter_room(self, room: Room):
         import random
@@ -57,7 +60,6 @@ class RunScene(Scene):
         if e.type == pg.KEYDOWN and e.key == pg.K_n and self.room_cleared:
             self.room_i += 1
             if self.room_i >= len(self.rooms):
-                # next floor or win 
                 pass
             else:
                 self._enter_room(self.rooms[self.room_i])
@@ -88,14 +90,15 @@ class RunScene(Scene):
             for e in self.enemies:
                 if e.alive and p.rect().colliderect(e.rect()):
                     e.hp -= p.damage; p.alive = False
-                    print("Enemy hp:", e.hp)
+                    if e.hp == 0:
+                        e.alive = False
+                        self.score += S.SCORE_PER_ENEMY
         self.enemies = [e for e in self.enemies if e.alive]
         
         # Enemy touch vs player
         for e in self.enemies:
             if self.player.rect().colliderect(e.rect()):
                 self.player.hp -= e.touch_damage
-                print("Player hp:", self.player.hp)
 
         # Boss 
         if self.boss:
@@ -105,7 +108,40 @@ class RunScene(Scene):
             if self.boss and self.boss.alive and p.rect().colliderect(self.boss.rect()):
                 self.boss.hp -= p.damage; p.alive = False
                 if self.boss.hp <= 0:
-                    self.boss = None        
+                    self.boss = None
+                    self.score += S.SCORE_PER_BOSS
+                    self.room_cleared = True
+                    self.message = "Boss defeated! Press N..."
+        
+        # Room clearance
+        if not self.enemies:
+            self.score += S.SCORE_PER_ROOM
+            self.room_cleared = True
+            self.message = "Room cleared! Press N..."
+        else:
+            self.room_cleared = False
+        
+        # Time decay
+        self.time_decay += dt
+        while self.time_decay >= 1.0:
+            self.time_decay -= 1.0
+            self.score -= S.SCORE_DECAY_PER_SEC
+
+        # Room advance (N): if at end of floor
+        if self.room_i >= len(self.rooms):
+            if self.floor_i + 1 >= S.FLOORS:
+                self.app.final_score = int(self.score)
+                self.next_scene = "gameover"
+            else:
+                self.floor_i += 1
+                self.rooms = generate_floor(self.floor_i).rooms
+                self.room_i = 0
+                self._enter_room(self.rooms[self.room_i])
+        
+        # Player death
+        if self.player.hp <= 0:
+            self.app.final_score = int(self.score)
+            self.next_scene = "gameover"
     
     def draw(self, surf: pg.Surface) -> None:
         surf.fill((26,22,32))
@@ -118,6 +154,10 @@ class RunScene(Scene):
             surf.blit(txt, (surf.get_width()//2 - txt.get_width()//2, surf.get_height()-16))
         # Boss bar
         if self.boss:
+            self.boss.draw(surf)
             pg.draw.rect(surf, (60,40,40), (20, 8, 280, 6))
             hpw = int(280 * max(0, self.boss.hp) / 42)
             pg.draw.rect(surf, (200,80,80), (20, 8, hpw, 6))
+        # HUD
+        draw_hud(surf, self.app.font, self.player.hp, self.max_hp, int(self.score), self.floor_i, self.room_i)
+

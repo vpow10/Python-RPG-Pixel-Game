@@ -2,16 +2,24 @@ from __future__ import annotations
 import pygame as pg
 from .. import settings as S
 from ..scene_manager import Scene
+from ..save.save import load_highscores
 
 
-# Placeholder for now
 class HighScores(Scene):
-    def __init__(self, app) -> None:
-        super().__init__(app)
-        
-    def update(self, dt: float) -> None: ...
+    def handle_event(self, e: pg.event.Event) -> None:
+        if e.type == pg.KEYDOWN and e.key in (pg.K_ESCAPE, pg.K_RETURN, pg.K_SPACE):
+            self.next_scene = "menu"
     
     def draw(self, surf: pg.Surface) -> None:
         w, h = surf.get_size()
         title = self.app.font_big.render("High Scores", True, S.YELLOW)
-        surf.blit(title, (w//2 - title.get_width()//2, 30))
+        surf.blit(title, (w//2 - title.get_width()//2, 20))
+        scores = load_highscores()
+        if not scores:
+            msg = self.app.font.render("No scores yet!", True, S.GRAY)
+            surf.blit(msg, (w//2 - msg.get_width()//2, h//2))
+        else:
+            for i, s in enumerate(scores[:10], start=1):
+                row = f"{i:2d}. {s['name']:<8}  {s['score']}"
+                txt = self.app.font.render(row, True, S.WHITE if i <= 3 else S.GRAY)
+                surf.blit(txt, (w//2 - 80, 60 + i * 14))
