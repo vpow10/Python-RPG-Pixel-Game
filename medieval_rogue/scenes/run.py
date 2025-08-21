@@ -7,6 +7,7 @@ from ..entities.projectile import Projectile
 from ..entities.enemy import Enemy, ENEMY_TYPES
 from ..dungeon.generation import generate_floor, spawn_enemies_for_room
 from ..dungeon.room import Room
+from ..items.basic_items import Item, ITEMS
 
 
 class RunScene(Scene):
@@ -22,8 +23,11 @@ class RunScene(Scene):
         self.rooms: list[Room] = generate_floor(self.floor_i).rooms
         self.enemies.clear(); self.e_projectiles.clear()
         self._enter_room(self.rooms[self.room_i])
-        self.item_available = None
         self.boss = None
+        self.max_hp = self.player.hp * 2
+        self.message = ""
+        self.room_cleared = False
+        self.item_available: Item | None = None
         
     def _enter_room(self, room: Room):
         import random
@@ -33,13 +37,27 @@ class RunScene(Scene):
             for cls, (x,y) in spawn_enemies_for_room(rng):
                 self.enemies.append(cls(x,y))
         elif room.type == "item":
-            pass
+            self.item_available = random.choice(ITEMS)
+            self.message = f"Item: {self.item_available.name} - {self.item_available.desc} (press E)"
         elif room.type == "boss":
             pass
     
     def handle_event(self, e: pg.event.Event) -> None:
         if e.type == pg.KEYDOWN and e.key == pg.K_ESCAPE:
             self.next_scene = "menu"
+        if e.type == pg.KEYDOWN and e.key == pg.K_e and self.item_available:
+            self.item_available.apply(self.player)
+            self.max_hp = max(self.max_hp, self.player.hp)
+            self.item_available = None
+            self.room_cleared = True
+            self.message = "Item taken! Press N for next room."
+        if e.type == pg.KEYDOWN and e.key == pg.K_n and self.room_cleared:
+            self.room_i += 1
+            if self.room_i >= len(self.rooms):
+                # next floor or win 
+                pass
+            else:
+                self._enter_room(self.rooms[self.room_i])
         
     def update(self, dt: float) -> None:
         keys = pg.key.get_pressed()
@@ -83,4 +101,7 @@ class RunScene(Scene):
         for p in self.projectiles: p.draw(surf)
         self.player.draw(surf)
         for e in self.enemies: e.draw(surf)
+        if self.message:
+            txt = self.app.font.render(self.message, True, (220,220,220))
+            surf.blit(txt, (surf.get_width()//2 - txt.get_width()//2, surf.get_height()-16))
             
