@@ -8,6 +8,7 @@ from ..entities.enemy import Enemy, ENEMY_TYPES
 from ..dungeon.generation import generate_floor, spawn_enemies_for_room
 from ..dungeon.room import Room
 from ..items.basic_items import Item, ITEMS
+from ..entities.boss import BOSSES
 
 
 class RunScene(Scene):
@@ -40,7 +41,9 @@ class RunScene(Scene):
             self.item_available = random.choice(ITEMS)
             self.message = f"Item: {self.item_available.name} - {self.item_available.desc} (press E)"
         elif room.type == "boss":
-            pass
+            BossCls = BOSSES[min(self.floor_i, len(BOSSES)-1)]
+            self.boss = BossCls(160, 90)
+            self.message = f"Boss: {self.boss.name}"
     
     def handle_event(self, e: pg.event.Event) -> None:
         if e.type == pg.KEYDOWN and e.key == pg.K_ESCAPE:
@@ -93,7 +96,16 @@ class RunScene(Scene):
             if self.player.rect().colliderect(e.rect()):
                 self.player.hp -= e.touch_damage
                 print("Player hp:", self.player.hp)
-                
+
+        # Boss 
+        if self.boss:
+            self.boss.update(dt, self.player.center(), self.e_projectiles, self.enemies)
+
+        for p in self.projectiles:
+            if self.boss and self.boss.alive and p.rect().colliderect(self.boss.rect()):
+                self.boss.hp -= p.damage; p.alive = False
+                if self.boss.hp <= 0:
+                    self.boss = None        
     
     def draw(self, surf: pg.Surface) -> None:
         surf.fill((26,22,32))
@@ -104,4 +116,8 @@ class RunScene(Scene):
         if self.message:
             txt = self.app.font.render(self.message, True, (220,220,220))
             surf.blit(txt, (surf.get_width()//2 - txt.get_width()//2, surf.get_height()-16))
-            
+        # Boss bar
+        if self.boss:
+            pg.draw.rect(surf, (60,40,40), (20, 8, 280, 6))
+            hpw = int(280 * max(0, self.boss.hp) / 42)
+            pg.draw.rect(surf, (200,80,80), (20, 8, hpw, 6))
