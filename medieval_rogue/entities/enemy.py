@@ -32,7 +32,7 @@ class Slime(Enemy):
             
 
 class Bat(Enemy):
-    def __init__(self, x, y): super().__init__(x, y, hp=1, speed=90.0)
+    def __init__(self, x, y): super().__init__(x, y, hp=1, speed=80.0)
     
     def draw(self, surf: pg.Surface) -> None: pg.draw.rect(surf, (120,120,220), self.rect())
     
