@@ -28,7 +28,9 @@ SCORE_PER_ROOM = 25
 SCORE_PER_BOSS = 200
 SCORE_DECAY_PER_SEC = 1
 
+# Generation
 FLOORS = 3
 ROOM_ENEMY_MIN = 3
 ROOM_ENEMY_MAX = 6
 RANDOM_SEED = None  # set to an int for deterministic runs
+SAFE_RADIUS = 64

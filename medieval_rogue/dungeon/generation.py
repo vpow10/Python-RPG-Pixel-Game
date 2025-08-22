@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from .room import Room, PATTERNS
 from .. import settings as S
 from ..entities.enemy import ENEMY_TYPES
+from ..entities.player import Player
+import math
 
 
 @dataclass
@@ -20,8 +22,14 @@ def generate_floor(floor_index: int) -> FloorPlan:
     rooms.append(make_random_room("boss"))
     return FloorPlan(rooms)
 
-def spawn_enemies_for_room(rng: random.Random):
+def spawn_enemies_for_room(rng: random.Random, player: Player):
     count = rng.randint(S.ROOM_ENEMY_MIN, S.ROOM_ENEMY_MAX)
     picks = rng.choices(ENEMY_TYPES, k=count)
-    positions = [(rng.randint(20,300), rng.randint(20,160)) for _ in range(count)]
+    enemies_count = 0
+    positions = []
+    while enemies_count < count:
+        position = (rng.randint(20,300), rng.randint(20,160))
+        if math.dist(position, player.center()) > S.SAFE_RADIUS:
+            positions.append(position)
+            enemies_count += 1
     return [(cls, pos) for cls, pos in zip(picks, positions)]

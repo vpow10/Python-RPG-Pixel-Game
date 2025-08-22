@@ -32,6 +32,10 @@ class RunScene(Scene):
         self.item_available: Item | None = None
         self.score = 10
         self.time_decay = 0.0
+        self.timescale = 1.0
+        self.hitstop_timer = 0.0
+        # self.sfx_hit = pg.mixer.Sound("assets/sfx/hit.wav")       # in future
+        # self.sfx_kill = pg.mixer.Sound("assets/sfx/kill.wav")     # in future
         
     def _enter_room(self, room: Room):
         import random
@@ -39,7 +43,7 @@ class RunScene(Scene):
         self.room_cleared = False; self.message = ""
         if room.type == "combat":
             rng = random.Random()
-            for cls, (x,y) in spawn_enemies_for_room(rng):
+            for cls, (x,y) in spawn_enemies_for_room(rng, self.player):
                 self.enemies.append(cls(x,y))
         elif room.type == "item":
             self.item_available = random.choice(ITEMS)
@@ -75,6 +79,13 @@ class RunScene(Scene):
         self.player.update(dt, keys, mpos, mbtn, self.projectiles)
         bounds = pg.Rect(0,0,S.BASE_W,S.BASE_H)
         
+        # For hitstop 
+        dt *= self.timescale
+        if self.hitstop_timer > 0:
+            self.hitstop_timer -= dt
+            if self.hitstop_timer <= 0:
+                self.timescale = 1.0
+        
         # Player projectiles
         for p in self.projectiles: p.update(dt, bounds)
         self.projectiles = [p for p in self.projectiles if p.alive]
@@ -91,26 +102,36 @@ class RunScene(Scene):
             for e in self.enemies:
                 if e.alive and p.rect().colliderect(e.rect()):
                     e.hp -= p.damage; p.alive = False
-                    if e.hp == 0:
+                    # self.sfx_hit.play()
+                    if e.hp <= 0:
                         e.alive = False
                         self.score += S.SCORE_PER_ENEMY
+                        # self.sfx_kill.play()
         self.enemies = [e for e in self.enemies if e.alive]
         
         # Enemy projectile vs player
         for p in self.e_projectiles:
             if not p.alive: continue
             if p.rect().colliderect(self.player.rect()):
-                self.player.hp -= 1; p.alive = False
-        
+                if self.player.take_damage(1):
+                    # self.sfx_hit.play()
+                    p.alive = False
+                    self.timescale = 0.05; self.hitstop_timer = 0.02
+                
         # Enemy touch vs player
         for e in self.enemies:
-            if self.player.rect().colliderect(e.rect()):
-                # self.player.hp -= e.touch_damage
-                self.player.hp -= 0
-
+            if e.alive and self.player.rect().colliderect(e.rect()):
+                if self.player.take_damage(e.touch_damage):
+                    # self.sfx_hit.play()
+                    self.timescale = 0.05; self.hitstop_timer = 0.02
+            
         # Boss 
         if self.boss:
             self.boss.update(dt, self.player.center(), self.e_projectiles, self.enemies)
+            if self.boss.rect().colliderect(self.player.rect()):
+                if self.player.take_damage(self.boss.touch_damage):
+                    # self.sfx_hit.play()
+                    self.timescale = 0.05; self.hitstop_timer = 0.02
 
         for p in self.projectiles:
             if self.boss and self.boss.alive and p.rect().colliderect(self.boss.rect()):

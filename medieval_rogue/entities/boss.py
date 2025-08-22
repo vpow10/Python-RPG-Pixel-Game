@@ -7,7 +7,7 @@ from ..entities.projectile import Projectile
 @dataclass
 class Boss:
     x: float; y: float; hp: int; name: str = "Boss"
-    alive: bool = True
+    alive: bool = True; touch_damage: int = 1
     
     def rect(self) -> pg.Rect: return pg.Rect(int(self.x-10), int(self.y-10), 20, 20)
     
@@ -47,7 +47,7 @@ class Warlock(Boss):    # bullet rings
 
     def update(self, dt, player_pos, projectiles, summons):
         self.t += dt; self.x += (160-self.x)*0.5*dt; self.y += (90-self.y)*0.5*dt
-        if self.t>=1.2:
+        if self.t>=0.8:
             self.t=0.0
             base = random.random()*math.tau
             for i in range(10):

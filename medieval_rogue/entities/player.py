@@ -14,6 +14,7 @@ class Player:
     proj_speed: float = S.PLAYER_BASE_PROJ_SPEED
     damage: int = S.PLAYER_BASE_DAMAGE
     fire_cd: float = 0.0
+    invuln_timer: float = 0.0
     
     def center(self) -> pg.Vector2: return pg.Vector2(self.x, self.y)
     
@@ -32,7 +33,20 @@ class Player:
                 v = dir_vec.normalize() * self.proj_speed
                 projectiles.append(Projectile(self.x, self.y, v.x, v.y, 2, self.damage, True))
                 self.fire_cd = 1.0 / self.firerate
+        if self.invuln_timer > 0:
+            self.invuln_timer -= dt
+            
+    def take_damage(self, dmg: int):
+        if self.invuln_timer <= 0:
+            self.hp -= dmg
+            self.invuln_timer = 1.0
+            return True
+        return False
+            
     def draw(self, surf: pg.Surface) -> None:
+        if self.invuln_timer > 0 and int(self.invuln_timer * 10) % 2 == 0:
+            return      # skip draw every other frame
         r = self.rect()
         pg.draw.rect(surf, (60,120,80), r)                      # body
         pg.draw.rect(surf, (30,80,50), (r.x, r.y-3, r.w, 3))    # hood
+    
