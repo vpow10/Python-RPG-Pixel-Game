@@ -30,6 +30,7 @@ def run() -> None:
     app.running = True
     app.font = pg.font.Font(None, 16)
     app.font_big = pg.font.Font(None, 24)
+    app.font_small = pg.font.Font(None, 14)
     
     
     sm = SceneManager(app)

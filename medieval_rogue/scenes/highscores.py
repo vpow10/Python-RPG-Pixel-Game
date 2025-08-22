@@ -21,5 +21,5 @@ class HighScores(Scene):
         else:
             for i, s in enumerate(scores[:10], start=1):
                 row = f"{i:2d}. {s['name']:<8}  {s['score']}"
-                txt = self.app.font.render(row, True, S.WHITE if i <= 3 else S.GRAY)
-                surf.blit(txt, (w//2 - 80, 60 + i * 14))
+                txt = self.app.font_small.render(row, True, S.WHITE if i <= 3 else S.GRAY)
+                surf.blit(txt, (w//2 - 50, 40 + i * 12))

@@ -159,12 +159,12 @@ class RunScene(Scene):
         if self.message:
             txt = self.app.font.render(self.message, True, (220,220,220))
             surf.blit(txt, (surf.get_width()//2 - txt.get_width()//2, surf.get_height()-16))
-        # Boss bar
+        # Boss
         if self.boss:
             self.boss.draw(surf)
-            pg.draw.rect(surf, (60,40,40), (20, 8, 280, 6))
+            pg.draw.rect(surf, (60,40,40), (20, 28, 280, 6))
             hpw = int(280 * max(0, self.boss.hp) / 42)
-            pg.draw.rect(surf, (200,80,80), (20, 8, hpw, 6))
+            pg.draw.rect(surf, (200,80,80), (20, 28, hpw, 6))
         # HUD
         draw_hud(surf, self.app.font, self.player.hp, self.max_hp, int(self.score), self.floor_i, self.room_i)
 
