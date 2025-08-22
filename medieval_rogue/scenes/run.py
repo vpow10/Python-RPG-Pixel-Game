@@ -34,12 +34,13 @@ class RunScene(Scene):
         self.time_decay = 0.0
         self.timescale = 1.0
         self.hitstop_timer = 0.0
+        self.entry_freeze = 0.5
         # self.sfx_hit = pg.mixer.Sound("assets/sfx/hit.wav")       # in future
         # self.sfx_kill = pg.mixer.Sound("assets/sfx/kill.wav")     # in future
         
     def _enter_room(self, room: Room):
         import random
-        self.enemies.clear(); self.e_projectiles.clear(); self.item_available = None; self.boss = None
+        self.enemies.clear(); self.e_projectiles.clear(); self.projectiles.clear(); self.item_available = None; self.boss = None
         self.room_cleared = False; self.message = ""
         if room.type == "combat":
             rng = random.Random()
@@ -52,6 +53,7 @@ class RunScene(Scene):
             BossCls = BOSSES[min(self.floor_i, len(BOSSES)-1)]
             self.boss = BossCls(160, 90)
             self.message = f"Boss: {self.boss.name}"
+        self.entry_freeze = 0.5
     
     def handle_event(self, e: pg.event.Event) -> None:
         if e.type == pg.KEYDOWN and e.key == pg.K_ESCAPE:
@@ -78,6 +80,10 @@ class RunScene(Scene):
         mbtn = pg.mouse.get_pressed(3)
         self.player.update(dt, keys, mpos, mbtn, self.projectiles)
         bounds = pg.Rect(0,0,S.BASE_W,S.BASE_H)
+        
+        if self.entry_freeze > 0:
+            self.entry_freeze -= dt
+            return      # skip updating while frozen
         
         # For hitstop 
         dt *= self.timescale
