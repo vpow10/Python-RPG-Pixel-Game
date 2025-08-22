@@ -37,7 +37,7 @@ class RunScene(Scene):
         self.entry_freeze = 0.5
         # self.sfx_hit = pg.mixer.Sound("assets/sfx/hit.wav")       # in future
         # self.sfx_kill = pg.mixer.Sound("assets/sfx/kill.wav")     # in future
-        
+
     def _enter_room(self, room: Room):
         import random
         self.enemies.clear(); self.e_projectiles.clear(); self.projectiles.clear(); self.item_available = None; self.boss = None
@@ -54,7 +54,7 @@ class RunScene(Scene):
             self.boss = BossCls(160, 90)
             self.message = f"Boss: {self.boss.name}"
         self.entry_freeze = 0.5
-    
+
     def handle_event(self, e: pg.event.Event) -> None:
         if e.type == pg.KEYDOWN and e.key == pg.K_ESCAPE:
             self.next_scene = "menu"
@@ -63,15 +63,18 @@ class RunScene(Scene):
             self.max_hp = max(self.max_hp, self.player.hp)
             self.item_available = None
             self.room_cleared = True
-            self.message = "Item taken! Press N for next room."
-        if e.type == pg.KEYDOWN and e.key == pg.K_n and self.room_cleared:
+            self.message = "Item taken! Press Space for next room."
+        if e.type == pg.KEYDOWN and e.key == pg.K_SPACE and self.room_cleared:
             self.room_i += 1
             if self.room_i >= len(self.rooms):
                 pass
             else:
                 self._enter_room(self.rooms[self.room_i])
-        
+
     def update(self, dt: float) -> None:
+        if self.entry_freeze > 0:
+            self.entry_freeze -= dt
+            return      # skip updating while frozen
         keys = pg.key.get_pressed()
         mpos = pg.mouse.get_pos()
         scale_x = self.app.window.get_width() // S.BASE_W
@@ -80,28 +83,24 @@ class RunScene(Scene):
         mbtn = pg.mouse.get_pressed(3)
         self.player.update(dt, keys, mpos, mbtn, self.projectiles)
         bounds = pg.Rect(0,0,S.BASE_W,S.BASE_H)
-        
-        if self.entry_freeze > 0:
-            self.entry_freeze -= dt
-            return      # skip updating while frozen
-        
-        # For hitstop 
+
+        # For hitstop
         dt *= self.timescale
         if self.hitstop_timer > 0:
             self.hitstop_timer -= dt
             if self.hitstop_timer <= 0:
                 self.timescale = 1.0
-        
+
         # Player projectiles
         for p in self.projectiles: p.update(dt, bounds)
         self.projectiles = [p for p in self.projectiles if p.alive]
-        
+
         # Enemy projectiles
         for e in self.enemies:
             e.update(dt, self.player.center(), self.e_projectiles)
         for p in self.e_projectiles: p.update(dt, bounds)
         self.e_projectiles = [p for p in self.e_projectiles if p.alive]
-        
+
         # Projectile vs enemy
         for p in self.projectiles:
             if not p.alive: continue
@@ -114,7 +113,7 @@ class RunScene(Scene):
                         self.score += S.SCORE_PER_ENEMY
                         # self.sfx_kill.play()
         self.enemies = [e for e in self.enemies if e.alive]
-        
+
         # Enemy projectile vs player
         for p in self.e_projectiles:
             if not p.alive: continue
@@ -123,15 +122,15 @@ class RunScene(Scene):
                     # self.sfx_hit.play()
                     p.alive = False
                     self.timescale = 0.05; self.hitstop_timer = 0.02
-                
+
         # Enemy touch vs player
         for e in self.enemies:
             if e.alive and self.player.rect().colliderect(e.rect()):
                 if self.player.take_damage(e.touch_damage):
                     # self.sfx_hit.play()
                     self.timescale = 0.05; self.hitstop_timer = 0.02
-            
-        # Boss 
+
+        # Boss
         if self.boss:
             self.boss.update(dt, self.player.center(), self.e_projectiles, self.enemies)
             if self.boss.rect().colliderect(self.player.rect()):
@@ -146,14 +145,14 @@ class RunScene(Scene):
                     self.boss = None
                     self.score += S.SCORE_PER_BOSS
                     self.room_cleared = True
-                    self.message = "Boss defeated! Press N..."
-        
+                    self.message = "Boss defeated! Press Space for next room"
+
         # Room clearance
         if not self.boss and not self.enemies and not self.item_available and not self.room_cleared:
             self.room_cleared = True
             self.score += S.SCORE_PER_ROOM
-            self.message = "Room cleared! Press N for next room."
-            
+            self.message = "Room cleared! Press Space for next room."
+
         # Time decay
         self.time_decay += dt
         while self.time_decay >= 1.0:
@@ -170,12 +169,12 @@ class RunScene(Scene):
                 self.rooms = generate_floor(self.floor_i).rooms
                 self.room_i = 0
                 self._enter_room(self.rooms[self.room_i])
-        
+
         # Player death
         if self.player.hp <= 0:
             self.app.final_score = int(self.score)
             self.next_scene = "gameover"
-    
+
     def draw(self, surf: pg.Surface) -> None:
         surf.fill((26,22,32))
         self.rooms[self.room_i].draw(surf)
