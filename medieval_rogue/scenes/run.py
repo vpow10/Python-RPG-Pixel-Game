@@ -96,6 +96,12 @@ class RunScene(Scene):
                         self.score += S.SCORE_PER_ENEMY
         self.enemies = [e for e in self.enemies if e.alive]
         
+        # Enemy projectile vs player
+        for p in self.e_projectiles:
+            if not p.alive: continue
+            if p.rect().colliderect(self.player.rect()):
+                self.player.hp -= 1; p.alive = False
+        
         # Enemy touch vs player
         for e in self.enemies:
             if self.player.rect().colliderect(e.rect()):
@@ -147,6 +153,7 @@ class RunScene(Scene):
         surf.fill((26,22,32))
         self.rooms[self.room_i].draw(surf)
         for p in self.projectiles: p.draw(surf)
+        for p in self.e_projectiles: p.draw(surf)
         self.player.draw(surf)
         for e in self.enemies: e.draw(surf)
         if self.message:
