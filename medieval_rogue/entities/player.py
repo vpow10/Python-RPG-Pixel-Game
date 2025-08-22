@@ -3,6 +3,7 @@ import pygame as pg, math
 from dataclasses import dataclass
 from .. import settings as S
 from .projectile import Projectile
+from .utilities import move_and_collide
 
 
 @dataclass
@@ -15,17 +16,19 @@ class Player:
     damage: int = S.PLAYER_BASE_DAMAGE
     fire_cd: float = 0.0
     invuln_timer: float = 0.0
-    
+
     def center(self) -> pg.Vector2: return pg.Vector2(self.x, self.y)
-    
+
     def rect(self) -> pg.Rect: return pg.Rect(int(self.x-5), int(self.y-6), 10, 12)
-    
-    def update(self, dt:float, keys, mouse_pos, mouse_buttons, projectiles: list[Projectile]) -> None:
+
+    def update(self, dt:float, keys, mouse_pos, mouse_buttons, projectiles: list[Projectile], walls: list[pg.Rect]) -> None:
         vx = (keys[pg.K_d] - keys[pg.K_a]); vy = (keys[pg.K_s] - keys[pg.K_w])
         move = pg.Vector2(vx, vy)
         if move.length_squared() > 0:
             move = move.normalize() * self.speed * dt
-            self.x += move.x; self.y += move.y
+            new_x, new_y, _ = move_and_collide(self.x, self.y, 10, 12, move.x, move.y, walls, ox=-5, oy=-6, stop_on_collision=False)
+            self.x, self.y = new_x, new_y
+
         self.fire_cd = max(0.0, self.fire_cd - dt)
         if mouse_buttons[0] and self.fire_cd <= 0.0:
             dir_vec = pg.Vector2(mouse_pos[0] - self.x, mouse_pos[1] - self.y)
@@ -35,18 +38,17 @@ class Player:
                 self.fire_cd = 1.0 / self.firerate
         if self.invuln_timer > 0:
             self.invuln_timer -= dt
-            
+
     def take_damage(self, dmg: int):
         if self.invuln_timer <= 0:
             self.hp -= dmg
             self.invuln_timer = 1.0
             return True
         return False
-            
+
     def draw(self, surf: pg.Surface) -> None:
         if self.invuln_timer > 0 and int(self.invuln_timer * 10) % 2 == 0:
             return      # skip draw every other frame
         r = self.rect()
         pg.draw.rect(surf, (60,120,80), r)                      # body
         pg.draw.rect(surf, (30,80,50), (r.x, r.y-3, r.w, 3))    # hood
-    

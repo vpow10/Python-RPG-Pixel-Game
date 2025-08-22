@@ -23,8 +23,9 @@ class RunScene(Scene):
         self.floor_i = 0
         self.room_i = 0
         self.rooms: list[Room] = generate_floor(self.floor_i).rooms
+        self.room = self.rooms[self.room_i]
         self.enemies.clear(); self.e_projectiles.clear()
-        self._enter_room(self.rooms[self.room_i])
+        self._enter_room(self.room)
         self.boss = None
         self.max_hp = self.player.hp * 2
         self.message = ""
@@ -39,13 +40,22 @@ class RunScene(Scene):
         # self.sfx_kill = pg.mixer.Sound("assets/sfx/kill.wav")     # in future
 
     def _enter_room(self, room: Room):
+        self.room = room
+
         import random
-        self.enemies.clear(); self.e_projectiles.clear(); self.projectiles.clear(); self.item_available = None; self.boss = None
-        self.room_cleared = False; self.message = ""
+        self.enemies.clear()
+        self.e_projectiles.clear()
+        self.projectiles.clear()
+        self.item_available = None
+        self.boss = None
+
+        self.room_cleared = False
+        self.message = ""
+
         if room.type == "combat":
             rng = random.Random()
-            for cls, (x,y) in spawn_enemies_for_room(rng, self.player):
-                self.enemies.append(cls(x,y))
+            for cls, (x, y) in spawn_enemies_for_room(rng, self.player):
+                self.enemies.append(cls(x, y))
         elif room.type == "item":
             self.item_available = random.choice(ITEMS)
             self.message = f"Item: {self.item_available.name} - {self.item_available.desc} (press E)"
@@ -53,6 +63,7 @@ class RunScene(Scene):
             BossCls = BOSSES[min(self.floor_i, len(BOSSES)-1)]
             self.boss = BossCls(160, 90)
             self.message = f"Boss: {self.boss.name}"
+
         self.entry_freeze = 0.5
 
     def handle_event(self, e: pg.event.Event) -> None:
@@ -75,13 +86,17 @@ class RunScene(Scene):
         if self.entry_freeze > 0:
             self.entry_freeze -= dt
             return      # skip updating while frozen
+
+        room = self.room
+        walls = room.walls()
+
         keys = pg.key.get_pressed()
         mpos = pg.mouse.get_pos()
         scale_x = self.app.window.get_width() // S.BASE_W
         scale_y = self.app.window.get_height() // S.BASE_H
         mpos = (mpos[0] // scale_x, mpos[1] // scale_y)
         mbtn = pg.mouse.get_pressed(3)
-        self.player.update(dt, keys, mpos, mbtn, self.projectiles)
+        self.player.update(dt, keys, mpos, mbtn, self.projectiles, walls)
         bounds = pg.Rect(0,0,S.BASE_W,S.BASE_H)
 
         # For hitstop
@@ -92,13 +107,13 @@ class RunScene(Scene):
                 self.timescale = 1.0
 
         # Player projectiles
-        for p in self.projectiles: p.update(dt, bounds)
+        for p in self.projectiles: p.update(dt, walls)
         self.projectiles = [p for p in self.projectiles if p.alive]
 
         # Enemy projectiles
         for e in self.enemies:
-            e.update(dt, self.player.center(), self.e_projectiles)
-        for p in self.e_projectiles: p.update(dt, bounds)
+            e.update(dt, self.player.center(), self.e_projectiles, walls)
+        for p in self.e_projectiles: p.update(dt, walls)
         self.e_projectiles = [p for p in self.e_projectiles if p.alive]
 
         # Projectile vs enemy
@@ -132,7 +147,7 @@ class RunScene(Scene):
 
         # Boss
         if self.boss:
-            self.boss.update(dt, self.player.center(), self.e_projectiles, self.enemies)
+            self.boss.update(dt, self.player.center(), self.e_projectiles, self.enemies, walls)
             if self.boss.rect().colliderect(self.player.rect()):
                 if self.player.take_damage(self.boss.touch_damage):
                     # self.sfx_hit.play()

@@ -2,15 +2,16 @@ from __future__ import annotations
 import pygame as pg, math, random
 from dataclasses import dataclass
 from ..entities.projectile import Projectile
+from .utilities import move_and_collide
 
 
 @dataclass
 class Boss:
     x: float; y: float; hp: int; name: str = "Boss"
     alive: bool = True; touch_damage: int = 1
-    
+
     def rect(self) -> pg.Rect: return pg.Rect(int(self.x-10), int(self.y-10), 20, 20)
-    
+
     def center(self) -> pg.Vector2: return pg.Vector2(self.x, self.y)
 
     def update(self, dt: float, player_pos: pg.Vector2, projectiles: list[Projectile], summons: list) -> None: ...
@@ -25,11 +26,15 @@ class Warden(Boss):     # bouncing + 5-way volley
 
     def draw(self, surf: pg.Surface) -> None: pg.draw.rect(surf, (50,220,150), self.rect())
 
-    def update(self, dt, player_pos, projectiles, summons):
-        self.x += self.vx*dt; self.y += self.vy*dt
-        w, h = 320,180
-        if self.x<10 or self.x>w-10: self.vx*=-1
-        if self.y<10 or self.y>h-10: self.vy*=-1
+    def update(self, dt, player_pos, projectiles, summons, walls):
+        dx = self.vx * dt
+        dy = self.vy * dt
+        nx, ny, _ = move_and_collide(self.x, self.y, 20, 20, dx, dy, walls, ox=-10, oy=-10, stop_on_collision=False)
+        if nx != self.x + dx:
+            self.vx *= -1
+        if ny != self.y + dy:
+            self.vy *= -1
+        self.x, self.y = nx, ny
         self.cd -= dt
         if self.cd<=0:
             self.cd=1.0
@@ -45,7 +50,7 @@ class Warlock(Boss):    # bullet rings
 
     def draw(self, surf: pg.Surface) -> None: pg.draw.rect(surf, (180,100,220), self.rect())
 
-    def update(self, dt, player_pos, projectiles, summons):
+    def update(self, dt, player_pos, projectiles, summons, walls):
         self.t += dt; self.x += (160-self.x)*0.5*dt; self.y += (90-self.y)*0.5*dt
         if self.t>=0.8:
             self.t=0.0
@@ -61,11 +66,11 @@ class KnightCaptain(Boss):      # telegraphed dash
     def __init__(self, x, y):
         super().__init__(x, y, hp=50, name="Knight Captain")
         self.state="charge"; self.cd=0.8; self.vx=self.vy=0.0
-    
+
     def draw(self, surf: pg.Surface) -> None:
         pg.draw.rect(surf, (200,180,80) if self.state=="charge" else (220,140,60), self.rect())
 
-    def update(self, dt, player_pos, projectiles, summons):
+    def update(self, dt, player_pos, projectiles, summons, walls):
         if self.state=="charge":
             self.cd-=dt
             if self.cd<0:
@@ -74,7 +79,13 @@ class KnightCaptain(Boss):      # telegraphed dash
                     d = d.normalize()
                     self.vx,self.vy = d.x*260, d.y*260; self.cd=0.6; self.state="dash"
         else:
-            self.x+=self.vx*dt; self.y+=self.vy*dt; self.cd-=dt
+            dx = self.vx * dt
+            dy = self.vy * dt
+            nx, ny, collided = move_and_collide(self.x, self.y, 20, 20, dx, dy, walls, ox=-10, oy=-10, stop_on_collision=False)
+            self.x, self.y = nx, ny
+            if collided:
+                self.state = "charge"
+                self.cd = 0.8
             if self.cd<=0: self.state="charge"; self.cd=0.8
 
 BOSSES = [Warden, Warlock, KnightCaptain]
