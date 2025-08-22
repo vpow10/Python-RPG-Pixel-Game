@@ -36,6 +36,7 @@ class RunScene(Scene):
     def _enter_room(self, room: Room):
         import random
         self.enemies.clear(); self.e_projectiles.clear(); self.item_available = None; self.boss = None
+        self.room_cleared = False; self.message = ""
         if room.type == "combat":
             rng = random.Random()
             for cls, (x,y) in spawn_enemies_for_room(rng):
@@ -119,8 +120,6 @@ class RunScene(Scene):
             self.room_cleared = True
             self.score += S.SCORE_PER_ROOM
             self.message = "Room cleared! Press N for next room."
-        else:
-            self.message = ""
             
         # Time decay
         self.time_decay += dt
