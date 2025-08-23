@@ -1,17 +1,16 @@
 from __future__ import annotations
 import pygame as pg
-from .. import settings as S
-from ..scene_manager import Scene
-from ..entities.player import Player
-from ..entities.boss import Boss
-from ..entities.projectile import Projectile
-from ..entities.enemy import Enemy, ENEMY_TYPES
-from ..dungeon.generation import generate_floor, spawn_enemies_for_room
-from ..dungeon.room import Room
-from ..items.basic_items import Item, ITEMS
-from ..entities.boss import BOSSES
-from ..ui.hud import draw_hud
-from ..assets.sound_manager import load_sounds
+from medieval_rogue import settings as S
+from medieval_rogue.scene_manager import Scene
+from medieval_rogue.entities.player import Player
+from medieval_rogue.entities.boss import Boss, BOSSES
+from medieval_rogue.entities.projectile import Projectile
+from medieval_rogue.entities.enemy import Enemy, ENEMY_TYPES
+from medieval_rogue.dungeon.generation import generate_floor, spawn_enemies_for_room
+from medieval_rogue.dungeon.room import Room
+from medieval_rogue.items.basic_items import Item, ITEMS
+from medieval_rogue.ui.hud import draw_hud
+from assets.sound_manager import load_sounds
 
 
 class RunScene(Scene):

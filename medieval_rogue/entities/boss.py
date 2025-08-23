@@ -1,8 +1,8 @@
 from __future__ import annotations
 import pygame as pg, math, random
 from dataclasses import dataclass
-from ..entities.projectile import Projectile
-from .utilities import move_and_collide
+from medieval_rogue.entities.projectile import Projectile
+from medieval_rogue.entities.utilities import move_and_collide
 
 
 @dataclass

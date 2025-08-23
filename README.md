@@ -3,6 +3,8 @@
 A pixel-style roguelite inspired by *The Binding of Isaac*, but with a medieval theme.  
 Fight through randomly generated dungeon rooms, collect items, defeat bosses, and try to get the highest score!
 
+> ⚠️ Windows users: a ready-to-run `MedievalRogue.exe` can be found in the `dist` folder (see the **Windows executable** section below).
+
 ---
 
 ## 🎮 Features
@@ -43,9 +45,24 @@ pip install -r requirements.txt
 ```bash
 python -m medieval_rogue
 ```
+or simply 
+```bash
+python launcher.py
+```
 
 The game runs in base resolution **320×180**, scaled to your window/screen.
 
+---
+
+## 📦 Windows executable (ready-to-run)
+
+A ready-to-run Windows executable is provided in the `dist` folder after building:
+
+- Path (after build): `dist/MedievalRogue/MedievalRogue.exe`
+- To run: double-click `MedievalRogue.exe` or open a command prompt in the `dist/MedievalRogue` folder and run:
+```cmd
+.\MedievalRogue.exe
+```
 ---
 
 ## 🕹 Controls

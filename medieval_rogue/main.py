@@ -1,13 +1,13 @@
 from __future__ import annotations
 import pygame as pg
 import random
-from . import settings as S
-from .scene_manager import SceneManager
-from .scenes.menu import Menu
-from .scenes.character_select import CharacterSelect
-from .scenes.run import RunScene
-from .scenes.game_over import GameOver
-from .scenes.highscores import HighScores
+from medieval_rogue import settings as S
+from medieval_rogue.scene_manager import SceneManager
+from medieval_rogue.scenes.menu import Menu
+from medieval_rogue.scenes.character_select import CharacterSelect
+from medieval_rogue.scenes.run import RunScene
+from medieval_rogue.scenes.game_over import GameOver
+from medieval_rogue.scenes.highscores import HighScores
 
 
 

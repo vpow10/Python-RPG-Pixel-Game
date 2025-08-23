@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from ..entities.player import Player
+from medieval_rogue.entities.player import Player
 
 
 @dataclass

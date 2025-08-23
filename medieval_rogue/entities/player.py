@@ -1,9 +1,9 @@
 from __future__ import annotations
 import pygame as pg
 from dataclasses import dataclass
-from .. import settings as S
-from .projectile import Projectile
-from .utilities import move_and_collide
+from medieval_rogue import settings as S
+from medieval_rogue.entities.projectile import Projectile
+from medieval_rogue.entities.utilities import move_and_collide
 
 
 @dataclass
@@ -18,7 +18,7 @@ class Player:
     invuln_timer: float = 0.0
 
     def __post_init__(self):
-        from ..assets.sound_manager import load_sounds
+        from assets.sound_manager import load_sounds
         self.sfx_shot = load_sounds()["shot"]
         self.sfx_shot.set_volume(0.2)
 

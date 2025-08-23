@@ -2,7 +2,7 @@ from __future__ import annotations
 import pygame as pg
 from dataclasses import dataclass
 from typing import Literal, List, Tuple
-from .. import settings as S
+from medieval_rogue import settings as S
 
 RoomType = Literal["combat", "item", "boss"]
 

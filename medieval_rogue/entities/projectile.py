@@ -1,7 +1,7 @@
 from __future__ import annotations
 import pygame as pg
 from dataclasses import dataclass
-from .utilities import move_and_collide
+from medieval_rogue.entities.utilities import move_and_collide
 
 
 @dataclass

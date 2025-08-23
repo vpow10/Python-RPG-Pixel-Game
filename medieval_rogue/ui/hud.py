@@ -1,6 +1,6 @@
 from __future__ import annotations
 import pygame as pg
-from .. import settings as S
+from medieval_rogue import settings as S
 
 
 def draw_hearts(surf: pg.Surface, hp: int, max_hp: int, x: int=6, y: int=6) -> None:
