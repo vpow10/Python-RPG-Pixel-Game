@@ -1,5 +1,5 @@
 from __future__ import annotations
-import pygame as pg, math
+import pygame as pg
 from dataclasses import dataclass
 from .. import settings as S
 from .projectile import Projectile
@@ -17,6 +17,10 @@ class Player:
     fire_cd: float = 0.0
     invuln_timer: float = 0.0
 
+    def __post_init__(self):
+        from ..assets.sound_manager import load_sounds
+        self.sfx_shot = load_sounds()["shot"]
+
     def center(self) -> pg.Vector2: return pg.Vector2(self.x, self.y)
 
     def rect(self) -> pg.Rect: return pg.Rect(int(self.x-5), int(self.y-6), 10, 12)
@@ -31,6 +35,7 @@ class Player:
 
         self.fire_cd = max(0.0, self.fire_cd - dt)
         if mouse_buttons[0] and self.fire_cd <= 0.0:
+            self.sfx_shot.play()
             dir_vec = pg.Vector2(mouse_pos[0] - self.x, mouse_pos[1] - self.y)
             if dir_vec.length_squared() > 0:
                 v = dir_vec.normalize() * self.proj_speed

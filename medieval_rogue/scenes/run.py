@@ -15,6 +15,8 @@ from ..ui.hud import draw_hud
 
 class RunScene(Scene):
     def __init__(self, app) -> None:
+        pg.init()
+        pg.mixer.init()
         super().__init__(app)
         stats = getattr(self.app, "chosen_stats", None) or {}
         self.player = Player(160, 90, **{k:v for k,v in stats.items() if k != "name"})
@@ -99,7 +101,6 @@ class RunScene(Scene):
         mpos = (mx / scale_x, my / scale_y)
         mbtn = pg.mouse.get_pressed(3)
         self.player.update(dt, keys, mpos, mbtn, self.projectiles, walls)
-        bounds = pg.Rect(0,0,S.BASE_W,S.BASE_H)
 
         # For hitstop
         dt *= self.timescale
