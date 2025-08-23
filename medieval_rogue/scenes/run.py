@@ -11,12 +11,14 @@ from ..dungeon.room import Room
 from ..items.basic_items import Item, ITEMS
 from ..entities.boss import BOSSES
 from ..ui.hud import draw_hud
+from ..assets.sound_manager import load_sounds
 
 
 class RunScene(Scene):
     def __init__(self, app) -> None:
         pg.init()
         pg.mixer.init()
+        self.sounds = load_sounds()
         super().__init__(app)
         stats = getattr(self.app, "chosen_stats", None) or {}
         self.player = Player(160, 90, **{k:v for k,v in stats.items() if k != "name"})

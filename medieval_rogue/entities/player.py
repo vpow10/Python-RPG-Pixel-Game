@@ -20,6 +20,7 @@ class Player:
     def __post_init__(self):
         from ..assets.sound_manager import load_sounds
         self.sfx_shot = load_sounds()["shot"]
+        self.sfx_shot.set_volume(0.2)
 
     def center(self) -> pg.Vector2: return pg.Vector2(self.x, self.y)
 
