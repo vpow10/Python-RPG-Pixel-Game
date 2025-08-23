@@ -82,3 +82,4 @@ The game runs in base resolution **320×180**, scaled to your window/screen.
 
 #### 🔊 Sound Credits
 - arrow_shot.wav by Lydmakeren -- https://freesound.org/s/511490/ -- License: Creative Commons 0
+- player_hit.wav by MrFossy -- https://freesound.org/s/547204/ -- License: Creative Commons 0

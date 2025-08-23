@@ -41,7 +41,8 @@ class RunScene(Scene):
         self.timescale: float = 1.0
         self.hitstop_timer: float = 0.0
         self.entry_freeze: float = 0.5
-        # self.sfx_hit = pg.mixer.Sound("assets/sfx/hit.wav")       # in future
+        self.sfx_player_hit = self.sounds["player_hit"]
+        self.sfx_player_hit.set_volume(0.2)
         # self.sfx_kill = pg.mixer.Sound("assets/sfx/kill.wav")     # in future
 
     def _enter_room(self, room: Room):
@@ -139,7 +140,7 @@ class RunScene(Scene):
             if not p.alive: continue
             if p.rect().colliderect(self.player.rect()):
                 if self.player.take_damage(1):
-                    # self.sfx_hit.play()
+                    self.sfx_player_hit.play()
                     p.alive = False
                     self.timescale = 0.05; self.hitstop_timer = 0.02
 
@@ -147,7 +148,7 @@ class RunScene(Scene):
         for e in self.enemies:
             if e.alive and self.player.rect().colliderect(e.rect()):
                 if self.player.take_damage(e.touch_damage):
-                    # self.sfx_hit.play()
+                    self.sfx_player_hit.play()
                     self.timescale = 0.05; self.hitstop_timer = 0.02
 
         # Boss
@@ -155,7 +156,7 @@ class RunScene(Scene):
             self.boss.update(dt, self.player.center(), self.e_projectiles, self.enemies, walls)
             if self.boss.rect().colliderect(self.player.rect()):
                 if self.player.take_damage(self.boss.touch_damage):
-                    # self.sfx_hit.play()
+                    self.sfx_player_hit.play()
                     self.timescale = 0.05; self.hitstop_timer = 0.02
 
         for p in self.projectiles:
