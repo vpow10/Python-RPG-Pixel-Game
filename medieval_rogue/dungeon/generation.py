@@ -1,7 +1,7 @@
 from __future__ import annotations
 import random
 from dataclasses import dataclass
-from .room import Room, PATTERNS
+from .room import Room, PATTERNS, BOSS_PATTERNS
 from .. import settings as S
 from ..entities.enemy import ENEMY_TYPES
 from ..entities.player import Player
@@ -13,13 +13,17 @@ class FloorPlan:
     rooms: list[Room]
     
 def make_random_room(rtype: str) -> Room:
-    return Room(rtype, random.choice(PATTERNS))
+    if rtype == "boss":
+        return Room(rtype, random.choice(BOSS_PATTERNS))
+    else:
+        return Room(rtype, random.choice(PATTERNS))
 
 def generate_floor(floor_index: int) -> FloorPlan:
     n_combat = random.randint(3, 5)
     rooms = [make_random_room("combat") for _ in range(n_combat)]
     rooms.append(make_random_room("item"))
     rooms.append(make_random_room("boss"))
+    rooms.append(make_random_room("item"))
     return FloorPlan(rooms)
 
 def spawn_enemies_for_room(rng: random.Random, player: Player):

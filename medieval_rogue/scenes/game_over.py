@@ -15,7 +15,7 @@ class GameOver(Scene):
     def handle_event(self, e: pg.event.Event) -> None:
         if e.type == pg.KEYDOWN:
             if not self.saved and e.unicode and e.key not in (pg.K_RETURN, pg.K_ESCAPE, pg.K_BACKSPACE):
-                if len(self.name) < 8 and e.unicode.isprintable():
+                if len(self.name) < 12 and e.unicode.isprintable():
                     self.name += e.unicode.upper()
             if e.key == pg.K_BACKSPACE and len(self.name) > 0:
                 self.name = self.name[:-1]

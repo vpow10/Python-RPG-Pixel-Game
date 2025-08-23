@@ -12,6 +12,11 @@ PATTERNS: List[List[Tuple[int,int,int,int]]] = [
     [(140,70,40,40)],
 ]
 
+BOSS_PATTERNS: List[List[Tuple[int,int,int,int]]] = [
+    [],
+    [(80,40,8,30), (232,40,8,30), (80,110,8,30), (232,110,8,30)],
+]
+
 @dataclass
 class Room:
     type: RoomType

@@ -7,7 +7,7 @@ from .utilities import move_and_collide
 
 @dataclass
 class Boss:
-    x: float; y: float; hp: int; name: str = "Boss"
+    x: float; y: float; max_hp: int; name: str = "Boss"; hp: int = 0
     alive: bool = True; touch_damage: int = 1
 
     def rect(self) -> pg.Rect: return pg.Rect(int(self.x-10), int(self.y-10), 20, 20)
@@ -21,8 +21,8 @@ class Boss:
 
 class Warden(Boss):     # bouncing + 5-way volley
     def __init__(self, x, y):
-        super().__init__(x, y, hp=30, name="Warden")
-        self.vx, self.vy = 60.0, 45.0; self.cd = 1.0
+        super().__init__(x, y, max_hp=30, name="Warden")
+        self.vx, self.vy = 60.0, 45.0; self.cd = 1.0; self.hp = self.max_hp
 
     def draw(self, surf: pg.Surface) -> None: pg.draw.rect(surf, (50,220,150), self.rect())
 
@@ -46,7 +46,8 @@ class Warden(Boss):     # bouncing + 5-way volley
 
 
 class Warlock(Boss):    # bullet rings
-    def __init__(self, x, y): super().__init__(x, y, hp=40, name="Warlock"); self.t=0.0
+    def __init__(self, x, y):
+        super().__init__(x, y, max_hp=40, name="Warlock"); self.t=0.0; self.hp=self.max_hp
 
     def draw(self, surf: pg.Surface) -> None: pg.draw.rect(surf, (180,100,220), self.rect())
 
@@ -64,8 +65,8 @@ class Warlock(Boss):    # bullet rings
 
 class KnightCaptain(Boss):      # telegraphed dash
     def __init__(self, x, y):
-        super().__init__(x, y, hp=50, name="Knight Captain")
-        self.state="charge"; self.cd=0.8; self.vx=self.vy=0.0
+        super().__init__(x, y, max_hp=50, name="Knight Captain")
+        self.state="charge"; self.cd=0.8; self.vx=self.vy=0.0; self.hp=self.max_hp
 
     def draw(self, surf: pg.Surface) -> None:
         pg.draw.rect(surf, (200,180,80) if self.state=="charge" else (220,140,60), self.rect())

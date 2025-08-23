@@ -20,6 +20,6 @@ class HighScores(Scene):
             surf.blit(msg, (w//2 - msg.get_width()//2, h//2))
         else:
             for i, s in enumerate(scores[:10], start=1):
-                row = f"{i:2d}. {s['name']:<8}  {s['score']}"
+                row = f"{i:2d}. {s['name']:<12}  {s['score']}"
                 txt = self.app.font_small.render(row, True, S.WHITE if i <= 3 else S.GRAY)
                 surf.blit(txt, (w//2 - 50, 40 + i * 12))

@@ -3,6 +3,7 @@ import pygame as pg
 from .. import settings as S
 from ..scene_manager import Scene
 from ..entities.player import Player
+from ..entities.boss import Boss
 from ..entities.projectile import Projectile
 from ..entities.enemy import Enemy, ENEMY_TYPES
 from ..dungeon.generation import generate_floor, spawn_enemies_for_room
@@ -20,22 +21,22 @@ class RunScene(Scene):
         self.projectiles: list[Projectile] = []
         self.enemies: list[Enemy] = []
         self.e_projectiles: list[Projectile] = []
-        self.floor_i = 0
-        self.room_i = 0
+        self.floor_i: int = 0
+        self.room_i: int = 0
         self.rooms: list[Room] = generate_floor(self.floor_i).rooms
-        self.room = self.rooms[self.room_i]
+        self.room: Room = self.rooms[self.room_i]
         self.enemies.clear(); self.e_projectiles.clear()
         self._enter_room(self.room)
-        self.boss = None
-        self.max_hp = self.player.hp * 2
-        self.message = ""
-        self.room_cleared = False
+        self.boss: Boss = None
+        self.max_hp: int = self.player.hp * 2
+        self.message: str = ""
+        self.room_cleared: bool = False
         self.item_available: Item | None = None
-        self.score = 10
-        self.time_decay = 0.0
-        self.timescale = 1.0
-        self.hitstop_timer = 0.0
-        self.entry_freeze = 0.5
+        self.score: int = 10
+        self.time_decay: float = 0.0
+        self.timescale: float = 1.0
+        self.hitstop_timer: float = 0.0
+        self.entry_freeze: float = 0.5
         # self.sfx_hit = pg.mixer.Sound("assets/sfx/hit.wav")       # in future
         # self.sfx_kill = pg.mixer.Sound("assets/sfx/kill.wav")     # in future
 
@@ -204,7 +205,7 @@ class RunScene(Scene):
         if self.boss:
             self.boss.draw(surf)
             pg.draw.rect(surf, (60,40,40), (20, 28, 280, 6))
-            hpw = int(280 * max(0, self.boss.hp) / 42)
+            hpw = int(280 * max(0, self.boss.hp) / self.boss.max_hp)
             pg.draw.rect(surf, (200,80,80), (20, 28, hpw, 6))
         # HUD
         draw_hud(surf, self.app.font, self.player.hp, self.max_hp, int(self.score), self.floor_i, self.room_i)
