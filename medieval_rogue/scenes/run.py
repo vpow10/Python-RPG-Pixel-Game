@@ -1,20 +1,23 @@
 from __future__ import annotations
 import pygame as pg
-from .. import settings as S
-from ..scene_manager import Scene
-from ..entities.player import Player
-from ..entities.boss import Boss
-from ..entities.projectile import Projectile
-from ..entities.enemy import Enemy, ENEMY_TYPES
-from ..dungeon.generation import generate_floor, spawn_enemies_for_room
-from ..dungeon.room import Room
-from ..items.basic_items import Item, ITEMS
-from ..entities.boss import BOSSES
-from ..ui.hud import draw_hud
+from medieval_rogue import settings as S
+from medieval_rogue.scene_manager import Scene
+from medieval_rogue.entities.player import Player
+from medieval_rogue.entities.boss import Boss, BOSSES
+from medieval_rogue.entities.projectile import Projectile
+from medieval_rogue.entities.enemy import Enemy, ENEMY_TYPES
+from medieval_rogue.dungeon.generation import generate_floor, spawn_enemies_for_room
+from medieval_rogue.dungeon.room import Room
+from medieval_rogue.items.basic_items import Item, ITEMS
+from medieval_rogue.ui.hud import draw_hud
+from assets.sound_manager import load_sounds
 
 
 class RunScene(Scene):
     def __init__(self, app) -> None:
+        pg.init()
+        pg.mixer.init()
+        self.sounds = load_sounds()
         super().__init__(app)
         stats = getattr(self.app, "chosen_stats", None) or {}
         self.player = Player(160, 90, **{k:v for k,v in stats.items() if k != "name"})
@@ -37,7 +40,8 @@ class RunScene(Scene):
         self.timescale: float = 1.0
         self.hitstop_timer: float = 0.0
         self.entry_freeze: float = 0.5
-        # self.sfx_hit = pg.mixer.Sound("assets/sfx/hit.wav")       # in future
+        self.sfx_player_hit = self.sounds["player_hit"]
+        self.sfx_player_hit.set_volume(0.2)
         # self.sfx_kill = pg.mixer.Sound("assets/sfx/kill.wav")     # in future
 
     def _enter_room(self, room: Room):
@@ -99,7 +103,6 @@ class RunScene(Scene):
         mpos = (mx / scale_x, my / scale_y)
         mbtn = pg.mouse.get_pressed(3)
         self.player.update(dt, keys, mpos, mbtn, self.projectiles, walls)
-        bounds = pg.Rect(0,0,S.BASE_W,S.BASE_H)
 
         # For hitstop
         dt *= self.timescale
@@ -136,7 +139,7 @@ class RunScene(Scene):
             if not p.alive: continue
             if p.rect().colliderect(self.player.rect()):
                 if self.player.take_damage(1):
-                    # self.sfx_hit.play()
+                    self.sfx_player_hit.play()
                     p.alive = False
                     self.timescale = 0.05; self.hitstop_timer = 0.02
 
@@ -144,7 +147,7 @@ class RunScene(Scene):
         for e in self.enemies:
             if e.alive and self.player.rect().colliderect(e.rect()):
                 if self.player.take_damage(e.touch_damage):
-                    # self.sfx_hit.play()
+                    self.sfx_player_hit.play()
                     self.timescale = 0.05; self.hitstop_timer = 0.02
 
         # Boss
@@ -152,7 +155,7 @@ class RunScene(Scene):
             self.boss.update(dt, self.player.center(), self.e_projectiles, self.enemies, walls)
             if self.boss.rect().colliderect(self.player.rect()):
                 if self.player.take_damage(self.boss.touch_damage):
-                    # self.sfx_hit.play()
+                    self.sfx_player_hit.play()
                     self.timescale = 0.05; self.hitstop_timer = 0.02
 
         for p in self.projectiles:

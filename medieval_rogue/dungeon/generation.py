@@ -1,10 +1,10 @@
 from __future__ import annotations
 import random
 from dataclasses import dataclass
-from .room import Room, PATTERNS, BOSS_PATTERNS
-from .. import settings as S
-from ..entities.enemy import ENEMY_TYPES
-from ..entities.player import Player
+from medieval_rogue.dungeon.room import Room, PATTERNS, BOSS_PATTERNS
+from medieval_rogue import settings as S
+from medieval_rogue.entities.enemy import ENEMY_TYPES
+from medieval_rogue.entities.player import Player
 import math
 
 

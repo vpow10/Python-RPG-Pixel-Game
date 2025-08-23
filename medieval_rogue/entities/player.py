@@ -1,9 +1,9 @@
 from __future__ import annotations
-import pygame as pg, math
+import pygame as pg
 from dataclasses import dataclass
-from .. import settings as S
-from .projectile import Projectile
-from .utilities import move_and_collide
+from medieval_rogue import settings as S
+from medieval_rogue.entities.projectile import Projectile
+from medieval_rogue.entities.utilities import move_and_collide
 
 
 @dataclass
@@ -16,6 +16,11 @@ class Player:
     damage: int = S.PLAYER_BASE_DAMAGE
     fire_cd: float = 0.0
     invuln_timer: float = 0.0
+
+    def __post_init__(self):
+        from assets.sound_manager import load_sounds
+        self.sfx_shot = load_sounds()["shot"]
+        self.sfx_shot.set_volume(0.2)
 
     def center(self) -> pg.Vector2: return pg.Vector2(self.x, self.y)
 
@@ -31,6 +36,7 @@ class Player:
 
         self.fire_cd = max(0.0, self.fire_cd - dt)
         if mouse_buttons[0] and self.fire_cd <= 0.0:
+            self.sfx_shot.play()
             dir_vec = pg.Vector2(mouse_pos[0] - self.x, mouse_pos[1] - self.y)
             if dir_vec.length_squared() > 0:
                 v = dir_vec.normalize() * self.proj_speed

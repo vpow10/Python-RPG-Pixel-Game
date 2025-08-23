@@ -1,7 +1,7 @@
 from __future__ import annotations
 import pygame as pg
-from .. import settings as S
-from ..scene_manager import Scene
+from medieval_rogue import settings as S
+from medieval_rogue.scene_manager import Scene
 
 
 ARCHER_STATS = {
