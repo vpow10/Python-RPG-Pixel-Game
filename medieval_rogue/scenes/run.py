@@ -92,10 +92,11 @@ class RunScene(Scene):
         walls = room.walls()
 
         keys = pg.key.get_pressed()
-        mpos = pg.mouse.get_pos()
-        scale_x = self.app.window.get_width() // S.BASE_W
-        scale_y = self.app.window.get_height() // S.BASE_H
-        mpos = (mpos[0] // scale_x, mpos[1] // scale_y)
+        mx, my = pg.mouse.get_pos()
+        win_w, win_h = self.app.window.get_size()
+        scale_x = win_w / S.BASE_W
+        scale_y = win_h / S.BASE_H
+        mpos = (mx / scale_x, my / scale_y)
         mbtn = pg.mouse.get_pressed(3)
         self.player.update(dt, keys, mpos, mbtn, self.projectiles, walls)
         bounds = pg.Rect(0,0,S.BASE_W,S.BASE_H)
