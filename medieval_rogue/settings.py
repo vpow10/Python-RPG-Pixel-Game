@@ -1,9 +1,15 @@
 from __future__ import annotations
 
 
-BASE_W, BASE_H = 320, 180   # logical pixels
-SCALE = 4                   # window = BASE * SCALE
+# Logical resolution and scaling
+BASE_W, BASE_H = 1280, 720   # logical pixels
+SCALE = 1                   # window = BASE * SCALE
 FPS = 60
+
+# Tile and rendering settings
+TILE_SIZE = 32
+SMOOTH_SCALE = False
+DEBUG_DRAW_HITBOXES = False
 
 # Colors
 BLACK = (0, 0, 0)
