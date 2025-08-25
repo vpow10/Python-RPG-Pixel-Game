@@ -30,7 +30,7 @@ class Room:
 
     def walls(self) -> List[pg.Rect]:
         surf_w, surf_h = S.BASE_W, S.BASE_H
-        border = 6
+        border = S.BORDER
         walls: List[pg.Rect] = [
             pg.Rect(0, 0, surf_w, border),               # top
             pg.Rect(0, surf_h - border, surf_w, border), # bottom

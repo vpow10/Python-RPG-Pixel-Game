@@ -200,6 +200,7 @@ class RunScene(Scene):
             self.next_scene = "gameover"
 
     def draw(self, surf: pg.Surface) -> None:
+        w, h = surf.get_size()
         surf.fill((26,22,32))
         self.rooms[self.room_i].draw(surf)
         for p in self.projectiles: p.draw(surf, camera=self.camera)
@@ -208,12 +209,12 @@ class RunScene(Scene):
         for e in self.enemies: e.draw(surf, camera=self.camera)
         if self.message:
             txt = self.app.font.render(self.message, True, (220,220,220))
-            surf.blit(txt, (surf.get_width()//2 - txt.get_width()//2, surf.get_height()-16))
+            surf.blit(txt, (surf.get_width()//2 - txt.get_width()//2, surf.get_height()-48))
         # Boss
         if self.boss:
             self.boss.draw(surf, camera=self.camera)
-            pg.draw.rect(surf, (60,40,40), (20, 28, 280, 6))
-            hpw = int(280 * max(0, self.boss.hp) / self.boss.max_hp)
+            pg.draw.rect(surf, (60,40,40), (20, 28, w - 40, 6))
+            hpw = int((w-40) * max(0, self.boss.hp) / self.boss.max_hp)
             pg.draw.rect(surf, (200,80,80), (20, 28, hpw, 6))
         # HUD
         draw_hud(surf, self.app.font, self.player.hp, self.max_hp, int(self.score), self.floor_i, self.room_i)
