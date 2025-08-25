@@ -30,8 +30,8 @@ class GameOver(Scene):
     def draw(self, surf: pg.Surface) -> None:
         w, h = surf.get_size()
         title = self.app.font_big.render("Game Over", True, S.RED)
-        surf.blit(title, (w//2 - title.get_width()//2, 24))
+        surf.blit(title, (w//2 - title.get_width()//2, 72))
         score = self.app.font.render(f"Score: {self.app.final_score}", True, S.WHITE)
-        surf.blit(score, (w//2 - score.get_width()//2, 60))
+        surf.blit(score, (w//2 - score.get_width()//2, 180))
         name = self.app.font.render(f"Name: {self.name}", True, S.YELLOW)
-        surf.blit(name, (w//2 - name.get_width()//2, 78))
+        surf.blit(name, (w//2 - name.get_width()//2, 234))
