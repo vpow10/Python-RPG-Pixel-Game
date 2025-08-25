@@ -4,6 +4,12 @@ from dataclasses import dataclass
 from typing import Literal, List, Tuple
 from medieval_rogue import settings as S
 
+
+SCALE_FACTOR = S.BASE_W / 320
+
+def _scale(v: int) -> int:
+    return int(round(v * SCALE_FACTOR))
+
 RoomType = Literal["combat", "item", "boss"]
 
 PATTERNS: List[List[Tuple[int,int,int,int]]] = [
@@ -33,7 +39,7 @@ class Room:
         ]
 
         for x, y, w, h in self.pattern:
-            walls.append(pg.Rect(x, y, w, h))
+            walls.append(pg.Rect(_scale(x), _scale(y), _scale(w), _scale(h)))
 
         return walls
 
@@ -42,4 +48,4 @@ class Room:
         pg.draw.rect(surf, (50,40,60), (0,0,*surf.get_size()), 6)
 
         for x, y, w, h in self.pattern:
-            pg.draw.rect(surf, (60,50,70), (x, y, w, h))
+            pg.draw.rect(surf, (60,50,70), (_scale(x), _scale(y), _scale(w), _scale(h)))
