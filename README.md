@@ -86,7 +86,10 @@ A ready-to-run Windows executable is provided in the `dist` folder after buildin
   - 5 items
   - Basic scoring & HUD
   - Collisions, hitstop, invulnerability frames
-
+### [1.0.1] — 2025-08-24
+- Features:
+  - Add sfx sounds for shooting and being hit
+  - Add .exe file for Windows and simplify launching via launcher.py
 ---
 
 ### Future updates
@@ -96,9 +99,6 @@ A ready-to-run Windows executable is provided in the `dist` folder after buildin
 - Polished menus, sounds, and effects.
 
 *(This log will always keep the last 5 versions.)*
-- 1.0.1 Version:
-  - Add sfx sounds for shooting and being hit
-  - Add .exe file for Windows and simplify launching via launcher.py
 
 #### 🔊 Sound Credits
 - arrow_shot.wav by Lydmakeren -- https://freesound.org/s/511490/ -- License: Creative Commons 0
