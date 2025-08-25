@@ -3,6 +3,7 @@ import pygame as pg, random
 from dataclasses import dataclass
 from medieval_rogue.entities.projectile import Projectile
 from medieval_rogue.entities.utilities import move_and_collide
+from medieval_rogue.camera import Camera
 
 
 @dataclass
@@ -23,7 +24,12 @@ class Enemy:
 class Slime(Enemy):
     def __init__(self, x, y): super().__init__(x, y, hp=2, speed=40.0)
 
-    def draw(self, surf: pg.Surface) -> None: pg.draw.rect(surf, (90,200,120), self.rect())
+    def draw(self, surf: pg.Surface, camera: Camera = None) -> None:
+        r = self.rect()
+        if camera is not None:
+            screen_pos = camera.world_to_screen(r.x, r.y)
+            r = pg.Rect(screen_pos[0], screen_pos[1], r.w, r.h)
+        pg.draw.rect(surf, (90,200,120), r)
 
     def update(self, dt, player_pos, projectiles, walls):
         v = player_pos - self.center()
@@ -36,7 +42,12 @@ class Slime(Enemy):
 class Bat(Enemy):
     def __init__(self, x, y): super().__init__(x, y, hp=1, speed=80.0)
 
-    def draw(self, surf: pg.Surface) -> None: pg.draw.rect(surf, (120,120,220), self.rect())
+    def draw(self, surf: pg.Surface, camera: Camera = None) -> None:
+        r = self.rect()
+        if camera is not None:
+            screen_pos = camera.world_to_screen(r.x, r.y)
+            r = pg.Rect(screen_pos[0], screen_pos[1], r.w, r.h)
+        pg.draw.rect(surf, (120,120,220), r)
 
     def update(self, dt, player_pos, projectiles, walls):
         v = player_pos - self.center()
@@ -52,7 +63,12 @@ class Skeleton(Enemy):
         super().__init__(x, y, hp=3, speed=50.0)
         self.shoot_cd = random.uniform(0.5, 1.2)
 
-    def draw(self, surf: pg.Surface) -> None: pg.draw.rect(surf, (220,220,220), self.rect())
+    def draw(self, surf: pg.Surface, camera: Camera = None) -> None:
+        r = self.rect()
+        if camera is not None:
+            screen_pos = camera.world_to_screen(r.x, r.y)
+            r = pg.Rect(screen_pos[0], screen_pos[1], r.w, r.h)
+        pg.draw.rect(surf, (220,220,220), r)
 
     def update(self, dt, player_pos, projectiles, walls):
         v = player_pos - self.center()

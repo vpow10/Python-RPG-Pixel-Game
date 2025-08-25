@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from medieval_rogue import settings as S
 from medieval_rogue.entities.projectile import Projectile
 from medieval_rogue.entities.utilities import move_and_collide
+from medieval_rogue.camera import Camera
 
 
 @dataclass
@@ -52,9 +53,20 @@ class Player:
             return True
         return False
 
-    def draw(self, surf: pg.Surface) -> None:
+    def draw(self, surf: pg.Surface, camera: Camera=None) -> None:
         if self.invuln_timer > 0 and int(self.invuln_timer * 10) % 2 == 0:
             return      # skip draw every other frame
         r = self.rect()
+        if camera is not None:
+            screen_pos = camera.world_to_screen(r.x, r.y)
+            r = pg.Rect(screen_pos[0], screen_pos[1], r.w, r.h)
+            
         pg.draw.rect(surf, (60,120,80), r)                      # body
         pg.draw.rect(surf, (30,80,50), (r.x, r.y-3, r.w, 3))    # hood
+
+        if S.DEBUG_DRAW_HITBOXES:
+            hb = self.rect()
+            if camera is not None:
+                hx, hy = camera.world_to_screen(hb.x, hb.y)
+                hb = pg.Rect(hx, hy, hb.w, hb.h)
+            pg.draw.rect(surf, (255,0,0), hb, 1)

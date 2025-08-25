@@ -2,6 +2,7 @@ from __future__ import annotations
 import pygame as pg
 from dataclasses import dataclass
 from medieval_rogue.entities.utilities import move_and_collide
+from medieval_rogue.camera import Camera
 
 
 @dataclass
@@ -24,6 +25,9 @@ class Projectile:
             return
         self.x, self.y = nx, ny
 
-    def draw(self, surf: pg.Surface) -> None:
+    def draw(self, surf: pg.Surface, camera: Camera=None) -> None:
         color = (240,220,120) if self.friendly else (220,90,90)
-        pg.draw.circle(surf, color, (int(self.x), int(self.y)), self.radius)
+        pos = (int(self.x), int(self.y))
+        if camera is not None:
+            pos = camera.world_to_screen(self.x, self.y)
+        pg.draw.circle(surf, color, pos, self.radius)

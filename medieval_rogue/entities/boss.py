@@ -3,6 +3,7 @@ import pygame as pg, math, random
 from dataclasses import dataclass
 from medieval_rogue.entities.projectile import Projectile
 from medieval_rogue.entities.utilities import move_and_collide
+from medieval_rogue.camera import Camera
 
 
 @dataclass
@@ -16,7 +17,12 @@ class Boss:
 
     def update(self, dt: float, player_pos: pg.Vector2, projectiles: list[Projectile], summons: list) -> None: ...
 
-    def draw(self, surf: pg.Surface) -> None: pg.draw.rect(surf, (200,80,120), self.rect())
+    def draw(self, surf: pg.Surface, camera: Camera = None) -> None:
+        r = self.rect()
+        if camera is not None:
+            screen_pos = camera.world_to_screen(r.x, r.y)
+            r = pg.Rect(screen_pos[0], screen_pos[1], r.w, r.h)
+        pg.draw.rect(surf, (200,80,120), r)
 
 
 class Warden(Boss):     # bouncing + 5-way volley
@@ -24,7 +30,12 @@ class Warden(Boss):     # bouncing + 5-way volley
         super().__init__(x, y, max_hp=30, name="Warden")
         self.vx, self.vy = 60.0, 45.0; self.cd = 1.0; self.hp = self.max_hp
 
-    def draw(self, surf: pg.Surface) -> None: pg.draw.rect(surf, (50,220,150), self.rect())
+    def draw(self, surf: pg.Surface, camera: Camera = None) -> None:
+        r = self.rect()
+        if camera is not None:
+            screen_pos = camera.world_to_screen(r.x, r.y)
+            r = pg.Rect(screen_pos[0], screen_pos[1], r.w, r.h)
+        pg.draw.rect(surf, (50,220,150), r)
 
     def update(self, dt, player_pos, projectiles, summons, walls):
         dx = self.vx * dt
@@ -49,7 +60,12 @@ class Warlock(Boss):    # bullet rings
     def __init__(self, x, y):
         super().__init__(x, y, max_hp=40, name="Warlock"); self.t=0.0; self.hp=self.max_hp
 
-    def draw(self, surf: pg.Surface) -> None: pg.draw.rect(surf, (180,100,220), self.rect())
+    def draw(self, surf: pg.Surface, camera: Camera = None) -> None:
+        r = self.rect()
+        if camera is not None:
+            screen_pos = camera.world_to_screen(r.x, r.y)
+            r = pg.Rect(screen_pos[0], screen_pos[1], r.w, r.h)
+        pg.draw.rect(surf, (180,100,220), r)
 
     def update(self, dt, player_pos, projectiles, summons, walls):
         self.t += dt; self.x += (160-self.x)*0.5*dt; self.y += (90-self.y)*0.5*dt
@@ -68,8 +84,12 @@ class KnightCaptain(Boss):      # telegraphed dash
         super().__init__(x, y, max_hp=50, name="Knight Captain")
         self.state="charge"; self.cd=0.8; self.vx=self.vy=0.0; self.hp=self.max_hp
 
-    def draw(self, surf: pg.Surface) -> None:
-        pg.draw.rect(surf, (200,180,80) if self.state=="charge" else (220,140,60), self.rect())
+    def draw(self, surf: pg.Surface, camera: Camera = None) -> None:
+        r = self.rect()
+        if camera is not None:
+            screen_pos = camera.world_to_screen(r.x, r.y)
+            r = pg.Rect(screen_pos[0], screen_pos[1], r.w, r.h)
+        pg.draw.rect(surf, (200,180,80) if self.state=="charge" else (220,140,60), r)
 
     def update(self, dt, player_pos, projectiles, summons, walls):
         if self.state=="charge":
