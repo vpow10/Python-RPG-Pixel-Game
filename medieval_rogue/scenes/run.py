@@ -11,6 +11,7 @@ from medieval_rogue.dungeon.room import Room
 from medieval_rogue.items.basic_items import Item, ITEMS
 from medieval_rogue.ui.hud import draw_hud
 from assets.sound_manager import load_sounds
+from medieval_rogue.camera import Camera
 
 
 class RunScene(Scene):
@@ -42,6 +43,7 @@ class RunScene(Scene):
         self.entry_freeze: float = 0.5
         self.sfx_player_hit = self.sounds["player_hit"]
         self.sfx_player_hit.set_volume(0.2)
+        self.camera = Camera()
         # self.sfx_kill = pg.mixer.Sound("assets/sfx/kill.wav")     # in future
 
     def _enter_room(self, room: Room):
@@ -103,6 +105,8 @@ class RunScene(Scene):
         mpos = (mx / scale_x, my / scale_y)
         mbtn = pg.mouse.get_pressed(3)
         self.player.update(dt, keys, mpos, mbtn, self.projectiles, walls)
+        self.camera.follow(self.player.x, self.player.y)
+        self.camera.clamp_to_room(S.BASE_W, S.BASE_H)
 
         # For hitstop
         dt *= self.timescale
@@ -196,20 +200,21 @@ class RunScene(Scene):
             self.next_scene = "gameover"
 
     def draw(self, surf: pg.Surface) -> None:
+        w, h = surf.get_size()
         surf.fill((26,22,32))
         self.rooms[self.room_i].draw(surf)
-        for p in self.projectiles: p.draw(surf)
-        for p in self.e_projectiles: p.draw(surf)
-        self.player.draw(surf)
-        for e in self.enemies: e.draw(surf)
+        for p in self.projectiles: p.draw(surf, camera=self.camera)
+        for p in self.e_projectiles: p.draw(surf, camera=self.camera)
+        self.player.draw(surf, camera=self.camera)
+        for e in self.enemies: e.draw(surf, camera=self.camera)
         if self.message:
             txt = self.app.font.render(self.message, True, (220,220,220))
-            surf.blit(txt, (surf.get_width()//2 - txt.get_width()//2, surf.get_height()-16))
+            surf.blit(txt, (surf.get_width()//2 - txt.get_width()//2, surf.get_height()-48))
         # Boss
         if self.boss:
-            self.boss.draw(surf)
-            pg.draw.rect(surf, (60,40,40), (20, 28, 280, 6))
-            hpw = int(280 * max(0, self.boss.hp) / self.boss.max_hp)
+            self.boss.draw(surf, camera=self.camera)
+            pg.draw.rect(surf, (60,40,40), (20, 28, w - 40, 6))
+            hpw = int((w-40) * max(0, self.boss.hp) / self.boss.max_hp)
             pg.draw.rect(surf, (200,80,80), (20, 28, hpw, 6))
         # HUD
         draw_hud(surf, self.app.font, self.player.hp, self.max_hp, int(self.score), self.floor_i, self.room_i)

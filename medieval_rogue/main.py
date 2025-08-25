@@ -28,9 +28,9 @@ def run() -> None:
     app.screen = screen
     app.clock = clock
     app.running = True
-    app.font = pg.font.Font(None, 16)
-    app.font_big = pg.font.Font(None, 24)
-    app.font_small = pg.font.Font(None, 14)
+    app.font = pg.font.Font(None, 48)
+    app.font_big = pg.font.Font(None, 72)
+    app.font_small = pg.font.Font(None, 42)
     
     
     sm = SceneManager(app)
@@ -49,5 +49,9 @@ def run() -> None:
         sm.update(dt)
         screen.fill((24, 20, 28))
         sm.draw(screen)
-        pg.transform.scale(screen, window.get_size(), window)
+        if S.SMOOTH_SCALE:
+            scaled = pg.transform.smoothscale(screen, window.get_size())
+        else:
+            scaled = pg.transform.scale(screen, window.get_size())
+        window.blit(scaled, (0, 0))
         pg.display.flip()
