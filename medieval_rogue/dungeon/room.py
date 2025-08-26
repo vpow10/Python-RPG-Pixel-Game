@@ -138,13 +138,13 @@ class Room:
                 rect = pg.Rect(my.right - S.DOOR_THICKNESS, cy - S.DOOR_LENGTH//2, S.DOOR_THICKNESS, S.DOOR_LENGTH)
             self.doors[side] = Door(side=side, rect=rect, open=self.cleared or self.kind in ("start", "item"))
 
-        # --- Drawing ---
-        def draw(self, surf: pg.Surface) -> None:
-            pg.draw.rect(surf, S.FLOOR_COLOR, self.world_rect)
-            for w in self.wall_rects()[:4]:
-                pg.draw.rect(surf, S.BORDER_COLOR, w)
-            for w in self.wall_rects()[4:]:
-                pg.draw.rect(surf, S.OBSTACLES_COLOR, w)
-            for d in self.doors.values():
-                color = S.DOOR_OPEN_COLOR if d.open else S.DOOR_CLOSED_COLOR
-                pg.draw.rect(surf, color, d.rect)
+    # --- Drawing ---
+    def draw(self, surf: pg.Surface) -> None:
+        pg.draw.rect(surf, S.FLOOR_COLOR, self.world_rect)
+        for w in self.wall_rects()[:4]:
+            pg.draw.rect(surf, S.BORDER_COLOR, w)
+        for w in self.wall_rects()[4:]:
+            pg.draw.rect(surf, S.OBSTACLES_COLOR, w)
+        for d in self.doors.values():
+            color = S.DOOR_OPEN_COLOR if d.open else S.DOOR_CLOSED_COLOR
+            pg.draw.rect(surf, color, d.rect)

@@ -1,15 +1,16 @@
 from __future__ import annotations
-import pygame as pg
+import pygame as pg, random
 from medieval_rogue import settings as S
 from medieval_rogue.scene_manager import Scene
 from medieval_rogue.entities.player import Player
 from medieval_rogue.entities.boss import Boss, BOSSES
 from medieval_rogue.entities.projectile import Projectile
 from medieval_rogue.entities.enemy import Enemy, ENEMY_TYPES
-from medieval_rogue.dungeon.generation import generate_floor, spawn_enemies_for_room
-from medieval_rogue.dungeon.room import Room
+from medieval_rogue.dungeon.generation import generate_floor
+from medieval_rogue.dungeon.room import Room, Direction
 from medieval_rogue.items.basic_items import Item, ITEMS
 from medieval_rogue.ui.hud import draw_hud
+from medieval_rogue.ui.minimap import draw_minimap
 from assets.sound_manager import load_sounds
 from medieval_rogue.camera import Camera
 
@@ -22,15 +23,19 @@ class RunScene(Scene):
         super().__init__(app)
         stats = getattr(self.app, "chosen_stats", None) or {}
         self.player = Player(160, 90, **{k:v for k,v in stats.items() if k != "name"})
+        self.camera = Camera()
         self.projectiles: list[Projectile] = []
         self.enemies: list[Enemy] = []
         self.e_projectiles: list[Projectile] = []
+        rng = random.Random(S.RANDOM_SEED)
+        self.floor = generate_floor(0, rng)
+        self.rooms = self.floor.rooms
+        self.current_gp = self.floor.start
+        self.current_room: Room = self.rooms[self.current_gp]
+        self._enter_room(self.current_gp, from_dir=None)
         self.floor_i: int = 0
         self.room_i: int = 0
-        self.rooms: list[Room] = generate_floor(self.floor_i).rooms
-        self.room: Room = self.rooms[self.room_i]
         self.enemies.clear(); self.e_projectiles.clear()
-        self._enter_room(self.room)
         self.boss: Boss = None
         self.max_hp: int = self.player.hp * 2
         self.message: str = ""
@@ -43,35 +48,82 @@ class RunScene(Scene):
         self.entry_freeze: float = 0.5
         self.sfx_player_hit = self.sounds["player_hit"]
         self.sfx_player_hit.set_volume(0.2)
-        self.camera = Camera()
         # self.sfx_kill = pg.mixer.Sound("assets/sfx/kill.wav")     # in future
 
-    def _enter_room(self, room: Room):
-        self.room = room
+    def _neighbors_of(self, gp):
+        gx, gy = gp
+        return {
+            "N": self.rooms.get((gx, gy-1)),
+            "S": self.rooms.get((gx, gy+1)),
+            "W": self.rooms.get((gx-1, gy)),
+            "E": self.rooms.get((gx+1, gy)),
+        }
 
-        import random
+    def _enter_room(self, gp, from_dir: Direction | None):
+        self.current_gp = gp
+        self.current_room = self.rooms[gp]
+        self.current_room.visited = True
+        for n in self._neighbors_of(gp).values():
+            if n: n.discovered = True
+        self.current_room.compute_doors(self._neighbors_of(gp))
+
+        self.walls = self.current_room.wall_rects()
         self.enemies.clear()
-        self.e_projectiles.clear()
         self.projectiles.clear()
-        self.item_available = None
+        self.e_projectiles.clear()
         self.boss = None
+        self.item_available = None
 
-        self.room_cleared = False
-        self.message = ""
+        if self.current_room.kind == "combat":
+            self._spawn_combat_wave()
+        elif self.current_room.kind == "item":
+            self._spawn_item_pedestal()
+        elif self.current_room.kind == "boss":
+            self._spawn_boss_encounter()
 
-        if room.type == "combat":
-            rng = random.Random()
-            for cls, (x, y) in spawn_enemies_for_room(rng, self.player):
-                self.enemies.append(cls(x, y))
-        elif room.type == "item":
-            self.item_available = random.choice(ITEMS)
-            self.message = f"Item: {self.item_available.name} - {self.item_available.desc} (press E)"
-        elif room.type == "boss":
-            BossCls = BOSSES[min(self.floor_i, len(BOSSES)-1)]
-            self.boss = BossCls(160, 90)
-            self.message = f"Boss: {self.boss.name}"
+        self._place_player_on_entry(from_dir)
+        self.camera.x = float(self.current_room.world_rect.centerx - self.camera.w // 2)
+        self.camera.y = float(self.current_room.world_rect.centery - self.camera.h // 2)
+        self.camera.clamp_to_room(self.current_room.world_rect.w, self.current_room.world_rect.h)
 
-        self.entry_freeze = 0.5
+    def _place_player_on_entry(self, from_dir: Direction | None) -> None:
+        r = self.current_room.world_rect
+        if from_dir == "N":
+            self.player.x, self.player.y = r.centerx, r.top + 80
+        elif from_dir == "S":
+            self.player.x, self.player.y = r.centerx, r.bottom - 80
+        elif from_dir == "W":
+            self.player.x, self.player.y = r.left + 80, r.centery
+        elif from_dir == "E":
+            self.player.x, self.player.y = r.right - 80, r.centery
+        else:
+            self.player.x, self.player.y = r.centerx, r.centery
+
+    def _spawn_combat_wave(self) -> None:
+        rng = random.Random(S.RANDOM_SEED)
+        r = self.current_room.world_rect
+        safe = pg.Rect(r.centerx - S.SAFE_RADIUS, r.centery - S.SAFE_RADIUS, S.SAFE_RADIUS*2, S.SAFE_RADIUS*2)
+        tries = 0
+        while len(self.enemies) < random.randint(S.ROOM_ENEMY_MIN, S.ROOM_ENEMY_MAX) and tries < 200:
+            tries += 1
+            x = rng.randint(r.left + 40, r.right - 40)
+            y = rng.randint(r.top + 40, r.bottom - 40)
+            p = pg.Rect(x-8, y-8, 16, 16)
+            if p.colliderect(safe):
+                continue
+            if any(p.colliderect(w) for w in self.walls):
+                continue
+            self.enemies.append(Enemy(x, y, **rng.choice(ENEMY_TYPES)))
+
+    def _spawn_item_pedestal(self) -> None:
+        r = self.current_room.world_rect
+        x = r.centerx
+        y = r.centery
+        self.item_available = random.choice(ITEMS)
+
+    def _spawn_boss_encounter(self) -> None:
+        r = self.current_room.world_rect
+        self.boss = Boss(r.centerx, r.centery, **random.choice(BOSSES))
 
     def handle_event(self, e: pg.event.Event) -> None:
         if e.type == pg.KEYDOWN and e.key == pg.K_ESCAPE:
@@ -94,8 +146,8 @@ class RunScene(Scene):
             self.entry_freeze -= dt
             return      # skip updating while frozen
 
-        room = self.room
-        walls = room.walls()
+        room = self.current_room
+        walls = room.wall_rects()
 
         keys = pg.key.get_pressed()
         mx, my = pg.mouse.get_pos()
@@ -172,10 +224,13 @@ class RunScene(Scene):
                     self.message = "Boss defeated! Press Space for next room"
 
         # Room clearance
-        if not self.boss and not self.enemies and not self.item_available and not self.room_cleared:
-            self.room_cleared = True
-            self.score += S.SCORE_PER_ROOM
-            self.message = "Room cleared! Press Space for next room."
+        if (self.current_room.kind in ("combat", "boss") and
+            not self.enemies and (not self.boss or self.boss.hp <= 0)):
+            if not self.current_room.cleared:
+                self.current_room.cleared = True
+                self.score += S.SCORE_PER_ROOM
+                for d in self.current_room.doors.values():
+                    d.open = True
 
         # Time decay
         self.time_decay += dt
@@ -183,16 +238,25 @@ class RunScene(Scene):
             self.time_decay -= 1.0
             self.score -= S.SCORE_DECAY_PER_SEC
 
-        # Room advance (N): if at end of floor
-        if self.room_i >= len(self.rooms):
-            if self.floor_i + 1 >= S.FLOORS:
-                self.app.final_score = int(self.score)
-                self.next_scene = "gameover"
-            else:
-                self.floor_i += 1
-                self.rooms = generate_floor(self.floor_i).rooms
-                self.room_i = 0
-                self._enter_room(self.rooms[self.room_i])
+        # Room advance
+        if self.current_room.doors:
+            prect = self.player.rect()
+            for side, door in self.current_room.doors.items():
+                if not door.open:
+                    continue
+                if prect.colliderect(door.rect):
+                    gx, gy = self.current_gp
+                    if side == "N": nxt = (gx, gy-1)
+                    elif side == "S": nxt = (gx, gy+1)
+                    elif side == "W": nxt = (gx-1, gy)
+                    else: nxt = (gx+1, gy)
+                    if nxt in self.rooms:
+                        self._enter_room(nxt, from_dir={"N":"S","S":"N","W":"E","E":"W"}[side])
+                        break
+
+        # Camera
+        self.camera.follow(self.player.x, self.player.y)
+        self.camera.clamp_to_room(self.current_room.world_rect.w, self.current_room.world_rect.h)
 
         # Player death
         if self.player.hp <= 0:
@@ -200,9 +264,7 @@ class RunScene(Scene):
             self.next_scene = "gameover"
 
     def draw(self, surf: pg.Surface) -> None:
-        w, h = surf.get_size()
-        surf.fill((26,22,32))
-        self.rooms[self.room_i].draw(surf)
+        self.current_room.draw(surf)
         for p in self.projectiles: p.draw(surf, camera=self.camera)
         for p in self.e_projectiles: p.draw(surf, camera=self.camera)
         self.player.draw(surf, camera=self.camera)
@@ -218,4 +280,4 @@ class RunScene(Scene):
             pg.draw.rect(surf, (200,80,80), (20, 28, hpw, 6))
         # HUD
         draw_hud(surf, self.app.font, self.player.hp, self.max_hp, int(self.score), self.floor_i, self.room_i)
-
+        draw_minimap(surf, self.rooms, self.current_gp)
