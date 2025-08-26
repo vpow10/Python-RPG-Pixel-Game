@@ -41,3 +41,13 @@ ROOM_ENEMY_MAX = 6
 RANDOM_SEED = None  # set to an int for deterministic runs
 SAFE_RADIUS = 64
 BORDER = 6
+
+# Dungeon / Rooms
+ROOM_CELL_W = BASE_W
+ROOM_CELL_H = BASE_H
+DOOR_THICKNESS = 28
+DOOR_LENGTH = 96
+MIN_ROOMS = 6
+MAX_ROOMS = 12
+DEBUG_MINIMAP = True
+DEBUG_ROOMS = True
