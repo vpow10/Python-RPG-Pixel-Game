@@ -3,6 +3,7 @@ import pygame as pg
 from dataclasses import dataclass, field
 from typing import Literal, List, Tuple, Dict
 from medieval_rogue import settings as S
+from medieval_rogue.camera import Camera
 
 
 RoomType = Literal["combat", "item", "boss", "start"]
@@ -93,14 +94,33 @@ class Room:
 
     # --- Walls ---
     def wall_rects(self) -> List[pg.Rect]:
-        r = self.world_rect
-        b = S.BORDER
-        walls: List[pg.Rect] = [
-            pg.Rect(r.left, r.top, r.w, b),  # top
-            pg.Rect(r.left, r.bottom - b, r.w, b),  # bottom
-            pg.Rect(r.left, r.top, b, r.h),  # left
-            pg.Rect(r.right - b, r.top, b, r.h),  # right
-        ]
+        r = self.world_rect; b = S.BORDER
+        walls: List[pg.Rect] = []
+
+        # Helper to carve a gap for a door along a 1D span
+        def carve_span(a0: int, a1: int, gap0: int | None, gap1: int | None) -> list[tuple[int,int]]:
+            if gap0 is None or gap1 is None or gap0 >= gap1:    # no door
+                return [(a0, a1)]
+            segs = []
+            if gap0 > a0: segs.append((a0, gap0))
+            if gap1 < a1: segs.append((gap1, a1))
+            return segs
+
+        dN = self.doors.get("N"); dS = self.doors.get("S"); dW = self.doors.get("W"); dE = self.doors.get("E")
+
+        gaps = carve_span(r.left, r.right, dN.rect.left if dN and dN.open else None, dN.rect.right if dN and dN.open else None)
+        for a, b2 in gaps:
+            walls.append(pg.Rect(a, r.top, b2 - a, b))
+        gaps = carve_span(r.left, r.right, dS.rect.left if dS and dS.open else None, dS.rect.right if dS and dS.open else None)
+        for a, b2 in gaps:
+            walls.append(pg.Rect(a, r.bottom - b, b2 - a, b))
+        gaps = carve_span(r.top, r.bottom, dW.rect.top if dW and dW.open else None, dW.rect.bottom if dW and dW.open else None)
+        for a, b2 in gaps:
+            walls.append(pg.Rect(r.left, a, b, b2 - a))
+        gaps = carve_span(r.top, r.bottom, dE.rect.top if dE and dE.open else None, dE.rect.bottom if dE and dE.open else None)
+        for a, b2 in gaps:
+            walls.append(pg.Rect(r.right - b, a, b, b2 - a))
+
         for spec in self.pattern:
             walls.append(self.to_world(spec))
         return walls
@@ -139,12 +159,19 @@ class Room:
             self.doors[side] = Door(side=side, rect=rect, open=self.cleared or self.kind in ("start", "item"))
 
     # --- Drawing ---
-    def draw(self, surf: pg.Surface) -> None:
-        pg.draw.rect(surf, S.FLOOR_COLOR, self.world_rect)
-        for w in self.wall_rects()[:4]:
-            pg.draw.rect(surf, S.BORDER_COLOR, w)
-        for w in self.wall_rects()[4:]:
-            pg.draw.rect(surf, S.OBSTACLES_COLOR, w)
+    def draw(self, surf: pg.Surface, camera: Camera | None = None) -> None:
+        def _apply(r: pg.Rect) -> pg.Rect:
+            if camera is None: return r
+            x, y = camera.world_to_screen(r.x, r.y)
+            return pg.Rect(int(x), int(y), int(r.w), int(r.h))
+
+        pg.draw.rect(surf, S.FLOOR_COLOR, _apply(self.world_rect))
+
+        walls = self.wall_rects()
+        for w in walls[:4]:
+            pg.draw.rect(surf, S.BORDER_COLOR, _apply(w))
+        for w in walls[4:]:
+            pg.draw.rect(surf, S.OBSTACLES_COLOR, _apply(w))
         for d in self.doors.values():
             color = S.DOOR_OPEN_COLOR if d.open else S.DOOR_CLOSED_COLOR
-            pg.draw.rect(surf, color, d.rect)
+            pg.draw.rect(surf, color, _apply(d.rect))

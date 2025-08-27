@@ -8,7 +8,7 @@ from medieval_rogue.scenes.character_select import CharacterSelect
 from medieval_rogue.scenes.run import RunScene
 from medieval_rogue.scenes.game_over import GameOver
 from medieval_rogue.scenes.highscores import HighScores
-
+import medieval_rogue.entities
 
 
 def run() -> None:
