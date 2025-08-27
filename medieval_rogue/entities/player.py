@@ -37,10 +37,10 @@ class Player:
     def proj_speed(self) -> float: return self.stats.proj_speed
     @property
     def damage(self) -> float: return self.stats.damage
-    
+
     def rect(self) -> pg.Rect:
         return pg.Rect(int(self.x-8), int(self.y-9), 16, 18)
-    
+
     def center(self) -> pg.Vector2:
         r = self.rect(); return pg.Vector2(r.centerx, r.centery)
 
@@ -52,7 +52,7 @@ class Player:
         if keys[pg.K_d] or keys[pg.K_RIGHT]: move.x += 1
         if move.length_squared() > 0:
             move = move.normalize() * self.speed * dt
-            new_x, new_y, _ = move_and_collide(self.x, self.y, 12, 12, move.x, move.y, walls, ox=-6, oy=-6, stop_on_collision=False)
+            new_x, new_y, _ = move_and_collide(self.x, self.y, 12, 12, move.x, move.y, walls, ox=-18, oy=-18, stop_on_collision=False)
             self.x, self.y = new_x, new_y
         self.fire_cd = max(0.0, self.fire_cd - dt)
         if mouse_buttons[0] and self.fire_cd <= 0.0:
@@ -60,7 +60,7 @@ class Player:
             dir_vec = pg.Vector2(mouse_pos[0] - self.x, mouse_pos[1] - self.y)
             if dir_vec.length_squared() > 0:
                 v = dir_vec.normalize() * self.proj_speed
-                projectiles.append(Projectile(self.x, self.y, v.x, v.y, 2, self.damage, True))
+                projectiles.append(Projectile(self.x, self.y, v.x, v.y, 6, self.damage, True))
                 self.fire_cd = 1.0 / self.firerate
         if self.invuln_timer > 0:
             self.invuln_timer -= dt
@@ -72,7 +72,7 @@ class Player:
             self.invuln_timer = 1.0
             return True
         return False
-    
+
     def apply_item(self, item):
         item.apply(self)
         self.inventory.append(item.name)

@@ -42,6 +42,9 @@ class RunScene(Scene):
         self.rooms: dict[tuple[int,int], Room] = self.floor.rooms
         self.current_gp = self.floor.start
         self.current_room: Room = self.rooms[self.current_gp]
+        self.current_room.visited = True
+        for _, r in self._neighbors_of(self.current_gp).items():
+            if r: r.discovered = True
         self.floor_i = 0; self.room_i = 0
         self.max_hp = self.player.stats.max_hp
         self.message = ""; self.room_cleared = False
@@ -59,9 +62,10 @@ class RunScene(Scene):
         self.current_gp = gp
         self.current_room = self.rooms[gp]
         self.current_room.visited = True
-        for n in self._neighbors_of(gp).values():
-            if n: n.discovered = True
-        self.current_room.compute_doors(self._neighbors_of(gp))
+        nbrs = self._neighbors_of(gp)
+        for _, r in nbrs.items():
+            if r: r.discovered = True
+        self.current_room.compute_doors(nbrs)
 
         self.walls = self.current_room.wall_rects()
         self.enemies.clear()
@@ -124,11 +128,12 @@ class RunScene(Scene):
         walls = room.wall_rects()
 
         keys = pg.key.get_pressed(); mouse_buttons = pg.mouse.get_pressed(); mouse_pos = pg.mouse.get_pos()
-        mx, my = pg.mouse.get_pos()
+        # Convert to world-space for aiming
+        world_mouse = (self.camera.x + mouse_pos[0], self.camera.y + mouse_pos[1])
         win_w, win_h = self.app.window.get_size()
         scale_x = win_w / S.BASE_W
         scale_y = win_h / S.BASE_H
-        self.player.update(dt, keys, mouse_buttons, mouse_pos, walls, self.projectiles)
+        self.player.update(dt, keys, mouse_buttons, world_mouse, walls, self.projectiles)
         self.camera.follow(self.player.x, self.player.y)
         self.camera.clamp_to_room(S.BASE_W, S.BASE_H)
 
@@ -237,7 +242,7 @@ class RunScene(Scene):
 
     def draw(self, surf: pg.Surface) -> None:
         w, h = S.BASE_W, S.BASE_H
-        self.current_room.draw(surf)
+        self.current_room.draw(surf, camera=self.camera)
         for p in self.projectiles: p.draw(surf, camera=self.camera)
         for p in self.e_projectiles: p.draw(surf, camera=self.camera)
         for e in self.enemies: e.draw(surf, camera=self.camera)

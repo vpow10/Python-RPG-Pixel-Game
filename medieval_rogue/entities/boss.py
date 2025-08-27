@@ -10,13 +10,13 @@ from medieval_rogue.entities.enemy_registry import register_boss
 @register_boss("warden")
 class Warden(Enemy):     # bouncing + 5-way volley
     def __init__(self, x, y, **opts):
-        super().__init__(x, y, hp=30, speed=60.0)
+        super().__init__(x, y, hp=30, speed=180.0)
         self.is_boss = True
         self.max_hp = self.hp
         self.vx = 60.0
         self.vy = 45.0
         self.cd = 1.0
-        
+
     def rect(self) -> pg.Rect:
         return pg.Rect(int(self.x-16), int(self.y-16), 32, 32)
 
@@ -42,7 +42,7 @@ class Warden(Enemy):     # bouncing + 5-way volley
             for ang in (0,72,144,216,288):
                 rad = math.radians(ang)
                 projectiles.append(Projectile(
-                    self.x, self.y, math.cos(rad)*130, math.sin(rad)*130,2,1,False
+                    self.x, self.y, math.cos(rad)*130, math.sin(rad)*130,6,1,False
                 ))
 
 @register_boss("warlock")
@@ -52,7 +52,7 @@ class Warlock(Enemy):    # bullet rings
         self.t=0.0;
         self.is_boss = True
         self.max_hp=self.hp
-        
+
     def rect(self) -> pg.Rect:
         return pg.Rect(int(self.x-16), int(self.y-16), 32, 32)
 
@@ -71,7 +71,7 @@ class Warlock(Enemy):    # bullet rings
             for i in range(10):
                 a = base + (i/10.0)*math.tau
                 projectiles.append(Projectile(
-                    self.x,self.y,math.cos(a)*150,math.sin(a)*150,2,1,False
+                    self.x,self.y,math.cos(a)*150,math.sin(a)*150,6,1,False
                 ))
 
 @register_boss("knight_captain")
@@ -83,7 +83,7 @@ class KnightCaptain(Enemy):      # telegraphed dash
         self.state="charge";
         self.cd=0.8;
         self.vx=self.vy=0.0;
-        
+
     def rect(self) -> pg.Rect:
         return pg.Rect(int(self.x-16), int(self.y-16), 32, 32)
 
@@ -101,7 +101,7 @@ class KnightCaptain(Enemy):      # telegraphed dash
                 d = (player_pos - self.center())
                 if d.length_squared()>0:
                     d = d.normalize()
-                    self.vx,self.vy = d.x*260, d.y*260; self.cd=0.6; self.state="dash"
+                    self.vx,self.vy = d.x*360, d.y*360; self.cd=0.6; self.state="dash"
         else:
             dx = self.vx * dt
             dy = self.vy * dt
@@ -115,28 +115,28 @@ class KnightCaptain(Enemy):      # telegraphed dash
 @register_boss("ogre_boss")
 class OgreBoss(Enemy):
     def __init__(self, x, y, **opts):
-        super().__init__(x, y, hp=50, speed=60.0)
+        super().__init__(x, y, hp=50, speed=150.0)
         self.is_boss = True
         self.max_hp = self.hp
         self._state = "charge"
         self._cd = 0.8
         self.vx = 0.0; self.vy = 0.0
-        
+
     def rect(self) -> pg.Rect:
         return pg.Rect(int(self.x-16), int(self.y-16), 32, 32)
-    
+
     def draw(self, surf: pg.Surface, camera: Camera | None = None) -> None:
         r = self.rect();
         if camera is not None: sx, sy = camera.world_to_screen(r.x, r.y); r = pg.Rect(sx, sy, r.w, r.h)
         pg.draw.rect(surf, (180, 80, 60), r)
-        
+
     def update(self, dt: float, player_pos: pg.Vector2, walls, projectiles):
         self._cd = max(0.0, self._cd - dt)
         if self._state == "charge":
             if self._cd <= 0.0:
                 d = (player_pos - self.center())
                 if d.length_squared() > 0:
-                    d = d.normalize(); speed = 260.0
+                    d = d.normalize(); speed = 450.0
                     self.vx, self.vy = d.x*speed, d.y*speed
                     self._cd = 0.6; self._state = "dash"
         else: # dash
@@ -147,4 +147,4 @@ class OgreBoss(Enemy):
                 for i in range(12):
                     ang = i * (3.14159 * 2 / 12)
                     v = pg.math.Vector2(160.0, 0).rotate_rad(ang)
-                    projectiles.append(Projectile(self.x, self.y, v.x, v.y, 2, 1, False))
+                    projectiles.append(Projectile(self.x, self.y, v.x, v.y, 6, 1, False))

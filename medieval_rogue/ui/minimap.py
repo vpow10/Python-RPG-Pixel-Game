@@ -28,6 +28,8 @@ def draw_minimap(surf: pg.Surface, rooms: Dict[GridPos, Room], current: GridPos)
 
     # Connections
     for (gx, gy), r in rooms.items():
+        if not S.DEBUG_MINIMAP and (not r.visited and not r.discovered):
+            continue
         cx = x0 + (gx - minx) * cell * 2 + cell
         cy = y0 + (gy - miny) * cell * 2 + cell
         for side, d in r.doors.items():
@@ -42,6 +44,8 @@ def draw_minimap(surf: pg.Surface, rooms: Dict[GridPos, Room], current: GridPos)
 
     # Rooms
     for gp, r in rooms.items():
+        if not S.DEBUG_MINIMAP and (not r.visited and not r.discovered):
+            continue
         cx = x0 + (gp[0] - minx) * cell * 2 + cell
         cy = y0 + (gp[1] - miny) * cell * 2 + cell
         col = (70,70,90)
