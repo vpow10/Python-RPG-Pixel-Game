@@ -49,7 +49,7 @@ class CharacterSelect(Scene):
 
         # current hero card area
         hero = self.options[self.index]
-        card_w, card_h = 360, 220
+        card_w, card_h = 480, 330
         card_x = panel_x + (panel_w - card_w) // 2
         card_y = panel_y + 64
         pg.draw.rect(surf, (36, 44, 56), (card_x, card_y, card_w, card_h), border_radius=6)
@@ -62,7 +62,7 @@ class CharacterSelect(Scene):
         self._draw_arrow(surf, right_x, arrow_y, left=False)
 
         # small hint text beneath arrows
-        hint = self.app.font_small.render("Use ← → to switch • Enter to select", True, (200,200,200))
+        hint = self.app.font_small.render("Use <- -> to switch • Enter to select", True, (200,200,200))
         surf.blit(hint, (w//2 - hint.get_width()//2, card_y + card_h + 10))
 
         # hero name

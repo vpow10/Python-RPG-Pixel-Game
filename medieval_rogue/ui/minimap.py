@@ -33,13 +33,13 @@ def draw_minimap(surf: pg.Surface, rooms: Dict[GridPos, Room], current: GridPos)
         cx = x0 + (gx - minx) * cell * 2 + cell
         cy = y0 + (gy - miny) * cell * 2 + cell
         for side, d in r.doors.items():
-            if side == "N" and (gx, gy-1) in rooms:
+            if side == "N" and (gx, gy-1) in rooms and (rooms[(gx, gy-1)].visited or rooms[(gx, gy-1)].discovered):
                 pg.draw.line(surf, (80,80,110), (cx, cy), (cx, cy - cell))
-            if side == "S" and (gx, gy+1) in rooms:
+            if side == "S" and (gx, gy+1) in rooms and (rooms[(gx, gy+1)].visited or rooms[(gx, gy+1)].discovered):
                 pg.draw.line(surf, (80,80,110), (cx, cy), (cx, cy + cell))
-            if side == "W" and (gx-1, gy) in rooms:
+            if side == "W" and (gx-1, gy) in rooms and (rooms[(gx-1, gy)].visited or rooms[(gx-1, gy)].discovered):
                 pg.draw.line(surf, (80,80,110), (cx, cy), (cx - cell, cy))
-            if side == "E" and (gx+1, gy) in rooms:
+            if side == "E" and (gx+1, gy) in rooms and (rooms[(gx+1, gy)].visited or rooms[(gx+1, gy)].discovered):
                 pg.draw.line(surf, (80,80,110), (cx, cy), (cx + cell, cy))
 
     # Rooms
