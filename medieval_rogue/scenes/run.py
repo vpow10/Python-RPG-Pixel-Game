@@ -146,6 +146,8 @@ class RunScene(Scene):
 
     def _advance_floor(self) -> None:
         self.floor_i += 1
+        if self.floor_i >= S.FLOORS:
+            self.next_scene = "gameover"
         self.floor = generate_floor(self.floor_i)
         self.rooms = self.floor.rooms
         self.current_gp = self.floor.start
