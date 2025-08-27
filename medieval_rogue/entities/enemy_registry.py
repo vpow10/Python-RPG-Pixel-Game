@@ -1,34 +1,60 @@
 from __future__ import annotations
-from typing import Dict, Callable, List, Tuple
+from typing import Dict, Callable, List, Iterable
+from dataclasses import dataclass
 
 
-_REG: Dict[str, Callable[..., object]] = {}
+class Registry:
+    def __init__(self, kind: str) -> None:
+        self.kind = kind
+        self._reg: Dict[str, Callable[..., object]] = {}
+    
+    def register(self, key: str):
+        def deco(cls_or_fn: Callable[..., object]):
+            self._reg[key] = cls_or_fn
+            return cls_or_fn
+        return deco
+    
+    def create(self, key: str, *args, **kwargs):
+        try:
+            factory = self._reg[key]
+        except KeyError as e:
+            raise KeyError(f"Unknown {self.kind} kind: {key!r}. Known: {sorted(self._reg)}") from e
+        return factory(*args, **kwargs)
+    
+    def keys(self) -> Iterable[str]:
+        return self._reg.keys()
+    
 
-def register(kind: str):
-    def deco(cls_or_fn: Callable[..., object]):
-        _REG[kind] = cls_or_fn
-        return cls_or_fn
-    return deco
+ENEMIES = Registry("enemy")
+BOSSES  = Registry("boss")
 
-def create(kind: str, *args, **kwargs):
-    if kind not in _REG:
-        raise KeyError(f"Unknown kind: {kind}")
-    return _REG[kind](*args, **kwargs)
+register = ENEMIES.register
+create   = ENEMIES.create
 
-def available():
-    return list(_REG.keys())
+register_enemy = ENEMIES.register
+create_enemy   = ENEMIES.create
 
+register_boss  = BOSSES.register
+create_boss    = BOSSES.create
 
-SPAWN_PATTERNS: Dict[str, List[Tuple[str, float, float, dict]]] = {
-    "combat_small_center": [("slime", 0.5, 0.5, {}), ("slime", 0.3, 0.6, {}), ("bats", 0.4, 0.5, {}),],
-    "combat_ring": [("skeleton", 0.5, 0.2, {}), ("skeleton", 0.2, 0.5,{}), ("bats", 0.4, 0.5, {})],
+@dataclass(frozen=True)
+class Spawn:
+    kind: str; rx: float; ry: float; kwargs: dict
+    
+SPAWN_PATTERNS: Dict[str, List[Spawn]] = {
+    "combat_small_center": [Spawn("slime", 0.50, 0.50, {}), Spawn("slime", 0.35, 0.55, {}), Spawn("bat", 0.60, 0.45, {})],
+    "combat_ring":        [Spawn("skeleton",0.50,0.20,{}), Spawn("skeleton",0.20,0.50,{}), Spawn("skeleton",0.80,0.50,{}), Spawn("bat",0.50,0.80,{})],
+    "four_corners":       [Spawn("slime",0.20,0.20,{}), Spawn("slime",0.80,0.20,{}), Spawn("slime",0.20,0.80,{}), Spawn("slime",0.80,0.80,{})],
+    "bats_swarm":         [Spawn("bat",0.30,0.30,{}), Spawn("bat",0.70,0.30,{}), Spawn("bat",0.30,0.70,{}), Spawn("bat",0.70,0.70,{}), Spawn("bat",0.50,0.50,{})],
+    "skeleton_line":      [Spawn("skeleton",0.25,0.50,{}), Spawn("skeleton",0.40,0.50,{}), Spawn("skeleton",0.60,0.50,{}), Spawn("skeleton",0.75,0.50,{})],
+    "mixed_cross":        [Spawn("slime",0.50,0.30,{}), Spawn("bat",0.30,0.50,{}), Spawn("skeleton",0.50,0.70,{}), Spawn("bat",0.70,0.50,{})],
 }
 
-def spawn_from_pattern(pattern_name: str, room_rect, create_fn=create):
+def spawn_from_pattern(pattern_name: str, room_rect, create_fn=create_enemy):
     pattern = SPAWN_PATTERNS.get(pattern_name, [])
     out = []
-    for kind, rx, ry, kw in pattern:
-        x = int(room_rect.left + rx * room_rect.w)
-        y = int(room_rect.top + ry * room_rect.h)
-        out.append(create_fn(kind, x, y, **kw))
+    for ins in pattern:
+        x = int(room_rect.left + ins.rx * room_rect.w)
+        y = int(room_rect.top  + ins.ry * room_rect.h)
+        out.append(create_fn(ins.kind, x, y, **(ins.kwargs or {})))
     return out
