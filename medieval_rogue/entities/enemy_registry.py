@@ -43,11 +43,12 @@ class Spawn:
     
 SPAWN_PATTERNS: Dict[str, List[Spawn]] = {
     "combat_small_center": [Spawn("slime", 0.50, 0.50, {}), Spawn("slime", 0.35, 0.55, {}), Spawn("bat", 0.60, 0.45, {})],
-    "combat_ring":        [Spawn("skeleton",0.50,0.20,{}), Spawn("skeleton",0.20,0.50,{}), Spawn("skeleton",0.80,0.50,{}), Spawn("bat",0.50,0.80,{})],
-    "four_corners":       [Spawn("slime",0.20,0.20,{}), Spawn("slime",0.80,0.20,{}), Spawn("slime",0.20,0.80,{}), Spawn("slime",0.80,0.80,{})],
-    "bats_swarm":         [Spawn("bat",0.30,0.30,{}), Spawn("bat",0.70,0.30,{}), Spawn("bat",0.30,0.70,{}), Spawn("bat",0.70,0.70,{}), Spawn("bat",0.50,0.50,{})],
-    "skeleton_line":      [Spawn("skeleton",0.25,0.50,{}), Spawn("skeleton",0.40,0.50,{}), Spawn("skeleton",0.60,0.50,{}), Spawn("skeleton",0.75,0.50,{})],
-    "mixed_cross":        [Spawn("slime",0.50,0.30,{}), Spawn("bat",0.30,0.50,{}), Spawn("skeleton",0.50,0.70,{}), Spawn("bat",0.70,0.50,{})],
+    "combat_ring":         [Spawn("skeleton",0.50,0.20,{}), Spawn("skeleton",0.20,0.50,{}), Spawn("skeleton",0.80,0.50,{}), Spawn("bat",0.50,0.80,{})],
+    "four_corners":        [Spawn("slime",0.20,0.20,{}), Spawn("slime",0.80,0.20,{}), Spawn("slime",0.20,0.80,{}), Spawn("slime",0.80,0.80,{})],
+    "bats_swarm":          [Spawn("bat",0.30,0.30,{}), Spawn("bat",0.70,0.30,{}), Spawn("bat",0.30,0.70,{}), Spawn("bat",0.70,0.70,{}), Spawn("bat",0.50,0.50,{})],
+    "skeleton_line":       [Spawn("skeleton",0.25,0.50,{}), Spawn("skeleton",0.40,0.50,{}), Spawn("skeleton",0.60,0.50,{}), Spawn("skeleton",0.75,0.50,{})],
+    "mixed_cross":         [Spawn("slime",0.50,0.30,{}), Spawn("bat",0.30,0.50,{}), Spawn("skeleton",0.50,0.70,{}), Spawn("bat",0.70,0.50,{})],
+    "zigzag":              [Spawn("bat", 0.2, 0.2, {}), Spawn("slime", 0.4, 0.4, {}), Spawn("bat", 0.6, 0.6, {}), Spawn("slime", 0.8, 0.8, {})],
 }
 
 def spawn_from_pattern(pattern_name: str, room_rect, create_fn=create_enemy):
