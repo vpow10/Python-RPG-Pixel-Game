@@ -10,7 +10,7 @@ from medieval_rogue.camera import Camera
 
 @dataclass
 class PlayerStats:
-    max_hp: int = S.PLAYER_BASE_HP
+    hp: int = S.PLAYER_BASE_HP
     speed: float = S.PLAYER_BASE_SPEED
     firerate: float = S.PLAYER_BASE_FIRERATE
     proj_speed: float = S.PLAYER_BASE_PROJ_SPEED
@@ -26,7 +26,7 @@ class Player:
     inventory: List[str] = field(default_factory=list)
 
     def __post_init__(self):
-        self.hp = self.stats.max_hp
+        self.hp = self.stats.hp
         self.sfx_shot = None
 
     @property
@@ -44,6 +44,11 @@ class Player:
     def center(self) -> pg.Vector2:
         r = self.rect(); return pg.Vector2(r.centerx, r.centery)
 
+    def set_position(self, x: float, y: float) -> None:
+        self.x = float(x)
+        self.y = float(y)
+        self.rect()
+
     def update(self, dt: float, keys, mouse_buttons, mouse_pos, walls: list[pg.Rect], projectiles: list[Projectile]) -> None:
         move = pg.Vector2(0,0)
         if keys[pg.K_w] or keys[pg.K_UP]: move.y -= 1
@@ -52,7 +57,7 @@ class Player:
         if keys[pg.K_d] or keys[pg.K_RIGHT]: move.x += 1
         if move.length_squared() > 0:
             move = move.normalize() * self.speed * dt
-            new_x, new_y, _ = move_and_collide(self.x, self.y, 12, 12, move.x, move.y, walls, ox=-18, oy=-18, stop_on_collision=False)
+            new_x, new_y, _ = move_and_collide(self.x, self.y, 16, 18, move.x, move.y, walls, ox=-8, oy=-9, stop_on_collision=False)
             self.x, self.y = new_x, new_y
         self.fire_cd = max(0.0, self.fire_cd - dt)
         if mouse_buttons[0] and self.fire_cd <= 0.0:

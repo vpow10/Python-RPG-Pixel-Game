@@ -74,7 +74,7 @@ class CharacterSelect(Scene):
         stats_y = card_y + 42
         line_h = self.app.font.get_linesize() + 2
         stats = [
-            f"HP: {hero.max_hp}",
+            f"HP: {hero.hp}",
             f"Damage: {hero.damage}",
             f"Speed: {hero.speed}",
             f"Fire rate: {hero.firerate}",

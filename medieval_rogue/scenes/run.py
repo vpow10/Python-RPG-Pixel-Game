@@ -1,5 +1,5 @@
 from __future__ import annotations
-import pygame as pg, random
+import pygame as pg, random, math
 from medieval_rogue import settings as S
 from medieval_rogue.scene_manager import Scene
 from medieval_rogue.entities.player import Player, PlayerStats
@@ -24,7 +24,7 @@ class RunScene(Scene):
         pc = getattr(self.app, "chosen_class", None)
         if pc is not None:
             stats = PlayerStats(
-                max_hp = pc.max_hp,
+                hp = pc.hp,
                 speed = pc.speed,
                 firerate = pc.firerate,
                 proj_speed = pc.proj_speed,
@@ -46,12 +46,15 @@ class RunScene(Scene):
         for _, r in self._neighbors_of(self.current_gp).items():
             if r: r.discovered = True
         self.floor_i = 0; self.room_i = 0
-        self.max_hp = self.player.stats.max_hp
+        self.max_hp = self.player.stats.hp
         self.message = ""; self.room_cleared = False
         self.item_pickup: ItemPickup | None = None
+        self.item_picked = False
+        self.boss_cleared = False
         self.score = 10
         self.timescale = 1.0; self.hitstop_timer = 0.0; self.entry_freeze = 0.4; self.time_decay = 0.0
-        self.sfx_player_hit = self.sounds["player_hit"]; self.sfx_player_hit.set_volume(0.2)
+        self.sfx_player_hit = self.sounds["player_hit"]; self.sfx_player_hit.set_volume(0.1)
+        self.sfx_arrow_shot = self.sounds["arrow_shot"]; self.sfx_arrow_shot.set_volume(0.1)
         self._enter_room(self.current_gp, from_dir=None)
 
     def _neighbors_of(self, gp):
@@ -75,16 +78,22 @@ class RunScene(Scene):
         self.item_available = None
 
         if self.current_room.kind == "combat":
-            self._spawn_combat_wave()
+            if not self.current_room.cleared:
+                self._spawn_combat_wave()
+            else:
+                self.message = ""
         elif self.current_room.kind == "item":
-            self._spawn_item()
+            if not self.item_picked:
+                self._spawn_item()
+                self.item_picked = True
         elif self.current_room.kind == "boss":
-            self._spawn_boss_encounter()
+            if not self.boss_cleared:
+                self._spawn_boss_encounter()
+                self.boss_cleared = True
 
         self._place_player_on_entry(from_dir)
-        self.camera.x = float(self.current_room.world_rect.centerx - self.camera.w // 2)
-        self.camera.y = float(self.current_room.world_rect.centery - self.camera.h // 2)
-        self.camera.clamp_to_room(self.current_room.world_rect.w, self.current_room.world_rect.h)
+        self.camera.center_on(self.player.x, self.player.y)
+        self.camera.clamp_to_room(self.current_room.world_rect)
 
     def _place_player_on_entry(self, from_dir: Direction | None) -> None:
         r = self.current_room.world_rect
@@ -93,6 +102,58 @@ class RunScene(Scene):
         elif from_dir == "W": self.player.x, self.player.y = r.left + 80, r.centery
         elif from_dir == "E": self.player.x, self.player.y = r.right - 80, r.centery
         else: self.player.x, self.player.y = r.centerx, r.centery
+        self.player.set_position(self.player.x, self.player.y)
+
+    def _find_free_spot(self, preferred: tuple[float, float], walls: list[pg.Rect], w: int = 16, h: int = 16,
+                        max_radius: int = 200, step: int = 8) -> tuple[float, float]:
+        """
+        Find a free spot near `preferred` (world coords) where a w x h rect does not collide with walls
+        and stays inside the current room bounds. Returns (x,y). Uses a spiral sample.
+        """
+        px, py = float(preferred[0]), float(preferred[1])
+        room_rect = self.current_room.world_rect
+
+        def collides(x: float, y: float) -> bool:
+            r = pg.Rect(int(x - w // 2), int(y - h // 2), w, h)
+            # must be inside room (respect border)
+            if r.left < room_rect.left + S.BORDER or r.right > room_rect.right - S.BORDER or \
+               r.top < room_rect.top + S.BORDER or r.bottom > room_rect.bottom - S.BORDER:
+                return True
+            for wr in walls:
+                if r.colliderect(wr):
+                    return True
+            return False
+
+        # Try preferred
+        if not collides(px, py):
+            return px, py
+
+        # Spiral search
+        for radius in range(step, max_radius + 1, step):
+            # sample 24 angles per radius
+            for a_deg in range(0, 360, 15):
+                ang = math.radians(a_deg)
+                x = px + math.cos(ang) * radius
+                y = py + math.sin(ang) * radius
+                if not collides(x, y):
+                    return float(x), float(y)
+
+        # fallback: nearest room-center clamped inside room
+        cx, cy = room_rect.centerx, room_rect.centery
+        cx = max(room_rect.left + S.BORDER + w//2, min(cx, room_rect.right - S.BORDER - w//2))
+        cy = max(room_rect.top + S.BORDER + h//2, min(cy, room_rect.bottom - S.BORDER - h//2))
+        return float(cx), float(cy)
+
+    def _advance_floor(self) -> None:
+        self.floor_i += 1
+        self.floor = generate_floor(self.floor_i)
+        self.rooms = self.floor.rooms
+        self.current_gp = self.floor.start
+        self._enter_room(self.current_gp, from_dir=None)
+        self.room_cleared = False
+        self.item_picked = False
+        self.boss_cleared = False
+        self.message = f"Floor {self.floor_i + 1}"
 
     def _spawn_combat_wave(self) -> None:
         rng = random.Random(S.RANDOM_SEED)
@@ -105,7 +166,9 @@ class RunScene(Scene):
     def _spawn_item(self) -> None:
         r = self.current_room.world_rect
         name = random.choice(ITEMS).name
-        self.item_pickup = ItemPickup(r.centerx, r.centery, item_id=name)
+        preferred = (r.centerx, r.centery)
+        sx, sy = self._find_free_spot(preferred, self.walls, w=16, h=16)
+        self.item_pickup = ItemPickup(sx, sy, item_id=name)
         self.message = f"Item: {name}"
 
     def _spawn_boss_encounter(self) -> None:
@@ -116,8 +179,16 @@ class RunScene(Scene):
         self.message = f"Boss: {boss_id}"
 
     def handle_event(self, e: pg.event.Event) -> None:
-        if e.type == pg.KEYDOWN and e.key == pg.K_ESCAPE:
-            self.next_scene = "menu"
+        if e.type == pg.KEYDOWN:
+            if e.key == pg.K_ESCAPE:
+                self.next_scene = "menu"
+                return
+            if e.key == pg.K_SPACE:
+                if self.room_cleared and self.current_room.kind == "boss":
+                    self._advance_floor()
+        if e.type == pg.MOUSEBUTTONDOWN:
+            if e.button == 1:
+                self.sfx_arrow_shot.play()
 
     def update(self, dt: float) -> None:
         if self.entry_freeze > 0:
@@ -129,13 +200,7 @@ class RunScene(Scene):
 
         keys = pg.key.get_pressed(); mouse_buttons = pg.mouse.get_pressed(); mouse_pos = pg.mouse.get_pos()
         # Convert to world-space for aiming
-        world_mouse = (self.camera.x + mouse_pos[0], self.camera.y + mouse_pos[1])
-        win_w, win_h = self.app.window.get_size()
-        scale_x = win_w / S.BASE_W
-        scale_y = win_h / S.BASE_H
-        self.player.update(dt, keys, mouse_buttons, world_mouse, walls, self.projectiles)
-        self.camera.follow(self.player.x, self.player.y)
-        self.camera.clamp_to_room(S.BASE_W, S.BASE_H)
+        world_mouse = self.camera.screen_to_world(mouse_pos[0], mouse_pos[1])
 
         # For hitstop
         dt *= self.timescale
@@ -144,14 +209,17 @@ class RunScene(Scene):
             if self.hitstop_timer <= 0:
                 self.timescale = 1.0
 
+        self.player.update(dt, keys, mouse_buttons, world_mouse, walls, self.projectiles)
+
         # Player projectiles
         for p in self.projectiles: p.update(dt, walls)
         self.projectiles = [p for p in self.projectiles if p.alive]
 
         # Enemy projectiles
         for e in self.enemies:
-            e.update(dt, self.player.center(), self.e_projectiles, walls)
-        for p in self.e_projectiles: p.update(dt, walls)
+            e.update(dt, self.player.center(), walls, self.e_projectiles)
+        for p in self.e_projectiles:
+            p.update(dt, walls)
         self.e_projectiles = [p for p in self.e_projectiles if p.alive]
 
         # Projectile vs enemy
@@ -183,9 +251,19 @@ class RunScene(Scene):
                     self.sfx_player_hit.play()
                     self.timescale = 0.05; self.hitstop_timer = 0.02
 
+        # Item
+        if self.item_pickup:
+            self.item_pickup.update(dt, self.player)
+            if not self.item_pickup.alive:
+                item_obj = get_item_by_name(self.item_pickup.item_id)
+                if item_obj is not None:
+                    self.player.apply_item(item_obj)
+                    self.message = f"{item_obj.name}, {item_obj.desc}"
+                self.item_pickup = None
+
         # Boss
         if self.boss:
-            self.boss.update(dt, self.player.center(), self.e_projectiles, self.enemies, walls)
+            self.boss.update(dt, self.player.center(), walls, self.e_projectiles)
             if self.boss.rect().colliderect(self.player.rect()):
                 if self.player.take_damage(self.boss.touch_damage):
                     self.sfx_player_hit.play()
@@ -193,12 +271,22 @@ class RunScene(Scene):
 
         for p in self.projectiles:
             if self.boss and self.boss.alive and p.rect().colliderect(self.boss.rect()):
-                self.boss.hp -= p.damage; p.alive = False
+                self.boss.hp -= p.damage
+                p.alive = False
                 if self.boss.hp <= 0:
                     self.boss = None
                     self.score += S.SCORE_PER_BOSS
                     self.room_cleared = True
                     self.message = "Boss defeated! Press Space for next room"
+                    try:
+                        name = random.choice(ITEMS).name
+                        preferred = (self.current_room.world_rect.centerx, self.current_room.world_rect.centery)
+                        sx, sy = self._find_free_spot(preferred, self.walls, w=16, h=16)
+                        self.item_pickup = ItemPickup(sx, sy, item_id=name)
+                    except Exception:
+                        # fallback: center
+                        r = self.current_room.world_rect
+                        self.item_pickup = ItemPickup(r.centerx, r.centery, item_id=random.choice(ITEMS).name)
 
         # Room clearance
         if (self.current_room.kind in ("combat", "boss") and
@@ -206,6 +294,7 @@ class RunScene(Scene):
             if not self.current_room.cleared:
                 self.current_room.cleared = True
                 self.score += S.SCORE_PER_ROOM
+                self.message = "Room cleared!"
                 for d in self.current_room.doors.values():
                     d.open = True
 
@@ -233,7 +322,7 @@ class RunScene(Scene):
 
         # Camera
         self.camera.follow(self.player.x, self.player.y)
-        self.camera.clamp_to_room(self.current_room.world_rect.w, self.current_room.world_rect.h)
+        self.camera.clamp_to_room(self.current_room.world_rect)
 
         # Player death
         if self.player.hp <= 0:
@@ -247,6 +336,8 @@ class RunScene(Scene):
         for p in self.e_projectiles: p.draw(surf, camera=self.camera)
         for e in self.enemies: e.draw(surf, camera=self.camera)
         self.player.draw(surf, camera=self.camera)
+        if self.item_pickup and self.item_pickup.alive:
+            self.item_pickup.draw(surf, camera=self.camera)
         if self.boss:
             self.boss.draw(surf, camera=self.camera)
             pg.draw.rect(surf, (60,40,40), (20, 28, w - 40, 6))
@@ -255,5 +346,5 @@ class RunScene(Scene):
         if self.message:
             txt = self.app.font.render(self.message, True, (220,220,220))
             surf.blit(txt, (surf.get_width()//2 - txt.get_width()//2, surf.get_height()-48))
-        draw_hud(surf, self.app.font, self.player.hp, self.max_hp, int(self.score), self.floor_i, self.room_i)
+        draw_hud(surf, self.app.font, self.player.hp, self.max_hp, int(self.score), self.floor_i)
         draw_minimap(surf, self.rooms, self.current_gp)

@@ -7,11 +7,11 @@ from medieval_rogue.entities.player import Player
 class Item:
     name: str; apply: Callable[[Player], None]; desc: str
 
-def better_darts(p: Player) -> None: p.proj_speed *= 1.2
-def longbow(p: Player) -> None: p.damage += 1
-def boots(p: Player) -> None: p.speed *= 1.1
-def quiver(p: Player) -> None: p.firerate *= 1.15
-def chestplate(p: Player) -> None: p.hp += 1
+def better_darts(p: Player) -> None: p.stats.proj_speed *= 1.2
+def longbow(p: Player) -> None: p.stats.damage += 1
+def boots(p: Player) -> None: p.stats.speed *= 1.1
+def quiver(p: Player) -> None: p.stats.firerate *= 1.15
+def chestplate(p: Player) -> None: p.stats.hp += 1
 
 ITEMS = [
     Item("Better Darts", better_darts, "+20% arrow speed"),

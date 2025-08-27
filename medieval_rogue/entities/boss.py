@@ -10,11 +10,11 @@ from medieval_rogue.entities.enemy_registry import register_boss
 @register_boss("warden")
 class Warden(Enemy):     # bouncing + 5-way volley
     def __init__(self, x, y, **opts):
-        super().__init__(x, y, hp=30, speed=180.0)
+        super().__init__(x, y, hp=30, speed=360.0)
         self.is_boss = True
         self.max_hp = self.hp
-        self.vx = 60.0
-        self.vy = 45.0
+        self.vx = 180.0
+        self.vy = 135.0
         self.cd = 1.0
 
     def rect(self) -> pg.Rect:
@@ -48,10 +48,12 @@ class Warden(Enemy):     # bouncing + 5-way volley
 @register_boss("warlock")
 class Warlock(Enemy):    # bullet rings
     def __init__(self, x, y, **opts):
-        super().__init__(x, y, hp=40, speed=0.0);
-        self.t=0.0;
+        super().__init__(x, y, hp=40, speed=0.0)
+        self.t = 0.0
         self.is_boss = True
-        self.max_hp=self.hp
+        self.max_hp = self.hp
+        self.spawn_x = float(x)
+        self.spawn_y = float(y)
 
     def rect(self) -> pg.Rect:
         return pg.Rect(int(self.x-16), int(self.y-16), 32, 32)
@@ -64,25 +66,40 @@ class Warlock(Enemy):    # bullet rings
         pg.draw.rect(surf, (180,100,220), r)
 
     def update(self, dt, player_pos, walls, projectiles):
-        self.t += dt; self.x += (160-self.x)*0.5*dt; self.y += (90-self.y)*0.5*dt
-        if self.t>=0.8:
-            self.t=0.0
-            base = random.random()*math.tau
+        self.t += dt
+        dx = (self.spawn_x - self.x) * 0.6 * dt
+        dy = (self.spawn_y - self.y) * 0.6 * dt
+        nx, ny, collided = move_and_collide(self.x, self.y, 32, 32, dx, dy, walls,
+                                           ox=-16, oy=-16, stop_on_collision=False)
+        self.x, self.y = nx, ny
+
+        if self.t >= 0.8:
+            self.t = 0.0
+            base = random.random() * math.tau
+            # ring
             for i in range(10):
                 a = base + (i/10.0)*math.tau
-                projectiles.append(Projectile(
-                    self.x,self.y,math.cos(a)*150,math.sin(a)*150,6,1,False
-                ))
+                projectiles.append(Projectile(self.x, self.y, math.cos(a)*150, math.sin(a)*150, 6, 1, False))
+
+            # targeted bolts: 3 bolts aimed at player with small spread
+            vec = player_pos - self.center()
+            if vec.length_squared() > 0:
+                dirv = vec.normalize()
+                for spread in (-0.18, 0.0, 0.18):
+                    v = dirv.rotate_rad(spread)
+                    projectiles.append(Projectile(self.x, self.y, v.x*220.0, v.y*220.0, 6, 1, False))
+
 
 @register_boss("knight_captain")
-class KnightCaptain(Enemy):      # telegraphed dash
+class KnightCaptain(Enemy):      # telegraphed dash + lance projectiles while dashing
     def __init__(self, x, y, **opts):
         super().__init__(x, y, hp=50, speed=0.0)
         self.is_boss = True
-        self.max_hp=self.hp
-        self.state="charge";
-        self.cd=0.8;
-        self.vx=self.vy=0.0;
+        self.max_hp = self.hp
+        self.state = "charge"
+        self.cd = 0.8
+        self.vx = self.vy = 0.0
+        self.dash_emit_cd = 0.12
 
     def rect(self) -> pg.Rect:
         return pg.Rect(int(self.x-16), int(self.y-16), 32, 32)
@@ -95,22 +112,40 @@ class KnightCaptain(Enemy):      # telegraphed dash
         pg.draw.rect(surf, (200,180,80) if self.state=="charge" else (220,140,60), r)
 
     def update(self, dt, player_pos, walls, projectiles):
-        if self.state=="charge":
-            self.cd-=dt
-            if self.cd<0:
+        if self.state == "charge":
+            self.cd -= dt
+            if self.cd < 0:
                 d = (player_pos - self.center())
-                if d.length_squared()>0:
+                if d.length_squared() > 0:
                     d = d.normalize()
-                    self.vx,self.vy = d.x*360, d.y*360; self.cd=0.6; self.state="dash"
+                    self.vx, self.vy = d.x*360, d.y*360
+                    self.cd = 0.6
+                    self.state = "dash"
+                    self.dash_emit_cd = 0.08  # start a short burst as the dash begins
         else:
             dx = self.vx * dt
             dy = self.vy * dt
-            nx, ny, collided = move_and_collide(self.x, self.y, 20, 20, dx, dy, walls, ox=-10, oy=-10, stop_on_collision=False)
+            nx, ny, collided = move_and_collide(self.x, self.y, 32, 32, dx, dy, walls, ox=-16, oy=-16, stop_on_collision=False)
             self.x, self.y = nx, ny
+
+            # while dashing, periodically emit short lances forward
+            self.dash_emit_cd -= dt
+            if self.dash_emit_cd <= 0:
+                self.dash_emit_cd = 0.12
+                dv = pg.Vector2(self.vx, self.vy)
+                if dv.length_squared() > 1:
+                    dv = dv.normalize()
+                    # one fast lance, plus two slight spreads
+                    for spread in (-0.15, 0.0, 0.15):
+                        a = dv.rotate_rad(spread)
+                        projectiles.append(Projectile(self.x, self.y, a.x * 260.0, a.y * 260.0, 6, 1, False))
+
             if collided:
                 self.state = "charge"
                 self.cd = 0.8
-            if self.cd<=0: self.state="charge"; self.cd=0.8
+            if self.cd <= 0:
+                self.state = "charge"
+                self.cd = 0.8
 
 @register_boss("ogre_boss")
 class OgreBoss(Enemy):

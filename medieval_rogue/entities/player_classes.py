@@ -5,7 +5,7 @@ from typing import Dict, Callable
 class PlayerClass:
     id: str
     name: str
-    max_hp: int
+    hp: int
     damage: float
     speed: float
     firerate: float
@@ -31,11 +31,11 @@ register_player_class(
     PlayerClass(
         id="archer",
         name="Archer",
-        max_hp=5,
+        hp=5,
         damage=1,
         speed=220.0,
         firerate=3.0,
-        proj_speed=200.0,
+        proj_speed=280.0,
         description="Balanced class with strong DPS.",
     )
 )
@@ -44,11 +44,11 @@ register_player_class(
     PlayerClass(
         id="rogue",
         name="Rogue",
-        max_hp=4,
+        hp=4,
         damage=2,
-        speed=240.0,
+        speed=250.0,
         firerate=2.0,
-        proj_speed=120.0,
+        proj_speed=190.0,
         description="Fast and agile, but fragile.",
     )
 )
@@ -57,11 +57,11 @@ register_player_class(
     PlayerClass(
         id="mage",
         name="Mage",
-        max_hp=3,
+        hp=3,
         damage=3,
-        speed=180.0,
+        speed=190.0,
         firerate=1.3,
-        proj_speed=100.0,
+        proj_speed=160.0,
         description="Powerful projectiles, but slow cast.",
     )
 )

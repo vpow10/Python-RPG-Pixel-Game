@@ -161,9 +161,9 @@ class Room:
     # --- Drawing ---
     def draw(self, surf: pg.Surface, camera: Camera | None = None) -> None:
         def _apply(r: pg.Rect) -> pg.Rect:
-            if camera is not None: return r
+            if camera is None: return r
             x, y = camera.world_to_screen(r.x, r.y)
-            return pg.Rect(x, y, r.w, r.h)
+            return pg.Rect(int(x), int(y), int(r.w), int(r.h))
 
         pg.draw.rect(surf, S.FLOOR_COLOR, _apply(self.world_rect))
 
