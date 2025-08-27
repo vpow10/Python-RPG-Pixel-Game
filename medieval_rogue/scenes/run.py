@@ -3,7 +3,7 @@ import pygame as pg, random
 from medieval_rogue import settings as S
 from medieval_rogue.scene_manager import Scene
 from medieval_rogue.entities.player import Player, PlayerStats
-from medieval_rogue.entities.boss import BOSSES
+from medieval_rogue.entities.enemy_registry import BOSSES
 from medieval_rogue.entities.projectile import Projectile
 from medieval_rogue.entities.enemy_registry import create_boss, spawn_from_pattern, SPAWN_PATTERNS
 from medieval_rogue.dungeon.generation import generate_floor
@@ -20,7 +20,19 @@ class RunScene(Scene):
         super().__init__(app)
         self.camera = Camera()
         self.sounds = load_sounds()
-        self.player = Player(S.BASE_W//2, S.BASE_H//2, stats=PlayerStats())
+        # create player from chosen class if the character select set it on the app.
+        pc = getattr(self.app, "chosen_class", None)
+        if pc is not None:
+            stats = PlayerStats(
+                max_hp = pc.max_hp,
+                speed = pc.speed,
+                firerate = pc.firerate,
+                proj_speed = pc.proj_speed,
+                damage = pc.damage,
+            )
+        else:
+            stats = PlayerStats()
+        self.player = Player(S.BASE_W//2, S.BASE_H//2, stats=stats)
         self.player.sfx_shot = self.sounds.get("arrow_shot")
         self.projectiles: list[Projectile] = []
         self.e_projectiles: list[Projectile] = []
@@ -82,9 +94,10 @@ class RunScene(Scene):
 
     def _spawn_boss_encounter(self) -> None:
         r = self.current_room.world_rect
-        name = random.choice(BOSSES)
-        self.boss = create_boss(name, r.centerx, r.centery)
-        self.message = "Boss!"
+        boss_ids = list(BOSSES.keys())
+        boss_id = random.choice(boss_ids)
+        self.boss = create_boss(boss_id, r.centerx, r.centery)
+        self.message = f"Boss: {boss_id}"
 
     def handle_event(self, e: pg.event.Event) -> None:
         if e.type == pg.KEYDOWN and e.key == pg.K_ESCAPE:
@@ -103,6 +116,33 @@ class RunScene(Scene):
 
         self.camera.follow(self.player.x, self.player.y)
         self.camera.clamp_to_room(self.current_room.world_rect.w, self.current_room.world_rect.h)
+        
+        # Room advance
+        room_r = self.current_room.world_rect
+        gx, gy = self.current_gp
+        neighbors = self._neighbors_of(self.current_gp)
+        px, py = self.player.center().x, self.player.center().y
+        threshold = 8
+
+        if px < room_r.left + threshold and neighbors.get("W") is not None:
+            new_gp = (gx - 1, gy)
+            self._enter_room(new_gp, from_dir="E")
+            return
+
+        if px > room_r.right - threshold and neighbors.get("E") is not None:
+            new_gp = (gx + 1, gy)
+            self._enter_room(new_gp, from_dir="W")
+            return
+
+        if py < room_r.top + threshold and neighbors.get("N") is not None:
+            new_gp = (gx, gy - 1)
+            self._enter_room(new_gp, from_dir="S")
+            return
+
+        if py > room_r.bottom - threshold and neighbors.get("S") is not None:
+            new_gp = (gx, gy + 1)
+            self._enter_room(new_gp, from_dir="N")
+            return
 
         for p in self.projectiles: p.update(dt, walls)
         for p in self.e_projectiles: p.update(dt, walls)

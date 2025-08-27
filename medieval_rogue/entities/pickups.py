@@ -1,27 +1,31 @@
-from dataclasses import dataclass
+from __future__ import annotations
 import pygame as pg
-from medieval_rogue.entities.base import Entity
-from medieval_rogue.items.basic_items import get_item_by_name
-
+from dataclasses import dataclass
+from medieval_rogue.entities.player import Player
+from medieval_rogue.camera import Camera
 
 @dataclass
-class ItemPickup(Entity):
+class ItemPickup:
+    x: float
+    y: float
     item_id: str
-    w: int = 20
-    h: int = 20
-    
-    def rect(self):
-        return pg.Rect(int(self.x - self.w/2), int(self.y - self.h/2), self.w, self.h)
-    
-    def draw(self, surf, camera=None):
-        r = self.rect()
-        if camera: r = camera.world_to_screen(r.x, r.y)
-        pg.draw.rect(surf, (120,80,40), r.inflate(6,6))
-        pg.draw.rect(surf, (200,200,60), r)
-        
-    def update(self, dt, player, **kwargs):
-        if player.rect().colliderect(self.rect()):
-            it = get_item_by_name(self.item_id)
-            if it:
-                it.apply(player)
+
+    alive: bool = True
+    w: int = 16
+    h: int = 16
+
+    def rect(self) -> pg.Rect:
+        return pg.Rect(int(self.x - self.w // 2), int(self.y - self.h // 2), self.w, self.h)
+
+    def update(self, dt: float, player: Player) -> None:
+        if not self.alive:
+            return
+        if self.rect().colliderect(player.rect()):
             self.alive = False
+
+    def draw(self, surf: pg.Surface, camera: Camera | None = None) -> None:
+        r = self.rect()
+        if camera is not None:
+            sx, sy = camera.world_to_screen(r.x, r.y)
+            r = pg.Rect(sx, sy, r.w, r.h)
+        pg.draw.rect(surf, (200, 180, 60), r)

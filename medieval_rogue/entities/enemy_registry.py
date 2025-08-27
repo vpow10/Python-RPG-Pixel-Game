@@ -7,23 +7,35 @@ class Registry:
     def __init__(self, kind: str) -> None:
         self.kind = kind
         self._reg: Dict[str, Callable[..., object]] = {}
-    
+
     def register(self, key: str):
         def deco(cls_or_fn: Callable[..., object]):
             self._reg[key] = cls_or_fn
             return cls_or_fn
         return deco
-    
+
     def create(self, key: str, *args, **kwargs):
         try:
             factory = self._reg[key]
         except KeyError as e:
             raise KeyError(f"Unknown {self.kind} kind: {key!r}. Known: {sorted(self._reg)}") from e
         return factory(*args, **kwargs)
-    
+
     def keys(self) -> Iterable[str]:
         return self._reg.keys()
-    
+
+    def values(self):
+        return self._reg.values()
+
+    def items(self):
+        return self._reg.items()
+
+    def __len__(self):
+        return len(self._reg)
+
+    def __contains__(self, key):
+        return key in self._reg
+
 
 ENEMIES = Registry("enemy")
 BOSSES  = Registry("boss")

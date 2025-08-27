@@ -44,7 +44,7 @@ class Player:
     def center(self) -> pg.Vector2:
         r = self.rect(); return pg.Vector2(r.centerx, r.centery)
 
-    def update(self, dt:float, keys, mouse_pos, mouse_buttons, projectiles: list[Projectile], walls: list[pg.Rect]) -> None:
+    def update(self, dt: float, keys, mouse_buttons, mouse_pos, walls: list[pg.Rect], projectiles: list[Projectile]) -> None:
         move = pg.Vector2(0,0)
         if keys[pg.K_w] or keys[pg.K_UP]: move.y -= 1
         if keys[pg.K_s] or keys[pg.K_DOWN]: move.y += 1
@@ -64,6 +64,7 @@ class Player:
                 self.fire_cd = 1.0 / self.firerate
         if self.invuln_timer > 0:
             self.invuln_timer -= dt
+
 
     def take_damage(self, dmg: int):
         if self.invuln_timer <= 0:

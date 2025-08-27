@@ -148,7 +148,3 @@ class OgreBoss(Enemy):
                     ang = i * (3.14159 * 2 / 12)
                     v = pg.math.Vector2(160.0, 0).rotate_rad(ang)
                     projectiles.append(Projectile(self.x, self.y, v.x, v.y, 2, 1, False))
-
-BOSSES = [
-    "warden", "warlock", "knight_captain", "ogre_boss"
-]
