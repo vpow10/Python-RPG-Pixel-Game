@@ -1,46 +1,26 @@
 from __future__ import annotations
-import pygame as pg, math, random
+import pygame as pg, random, math
 from dataclasses import dataclass
 from medieval_rogue.entities.projectile import Projectile
 from medieval_rogue.entities.utilities import move_and_collide
 from medieval_rogue.camera import Camera
-from medieval_rogue.entities.enemy_registry import register
+from medieval_rogue.entities.base import Entity
 from medieval_rogue.entities.enemy import Enemy
+from medieval_rogue.entities.enemy_registry import register_boss
 
 
-@register("ogre_boss")
-class OgreBoss(Enemy):
+@register_boss("warden")
+class Warden(Enemy):     # bouncing + 5-way volley
     def __init__(self, x, y, **opts):
-        super().__init__(x,y,hp=40,speed=0.6)
+        super().__init__(x, y, hp=30, speed=60.0)
         self.is_boss = True
-        self.drop_table = opts.get("drop_table", [{"item":"Chestplate","chance":1.0}])
-
-    def update(self, dt, player_pos, walls, projectiles):
-        pass
-
-@dataclass
-class Boss:
-    x: float; y: float; max_hp: int; name: str = "Boss"; hp: int = 0
-    alive: bool = True; touch_damage: int = 1
-
-    def rect(self) -> pg.Rect: return pg.Rect(int(self.x-10), int(self.y-10), 20, 20)
-
-    def center(self) -> pg.Vector2: return pg.Vector2(self.x, self.y)
-
-    def update(self, dt: float, player_pos: pg.Vector2, projectiles: list[Projectile], summons: list) -> None: ...
-
-    def draw(self, surf: pg.Surface, camera: Camera = None) -> None:
-        r = self.rect()
-        if camera is not None:
-            screen_pos = camera.world_to_screen(r.x, r.y)
-            r = pg.Rect(screen_pos[0], screen_pos[1], r.w, r.h)
-        pg.draw.rect(surf, (200,80,120), r)
-
-
-class Warden(Boss):     # bouncing + 5-way volley
-    def __init__(self, x, y):
-        super().__init__(x, y, max_hp=30, name="Warden")
-        self.vx, self.vy = 60.0, 45.0; self.cd = 1.0; self.hp = self.max_hp
+        self.max_hp = self.hp
+        self.vx = 60.0
+        self.vy = 45.0
+        self.cd = 1.0
+        
+    def rect(self) -> pg.Rect:
+        return pg.Rect(int(self.x-16), int(self.y-16), 32, 32)
 
     def draw(self, surf: pg.Surface, camera: Camera = None) -> None:
         r = self.rect()
@@ -49,7 +29,7 @@ class Warden(Boss):     # bouncing + 5-way volley
             r = pg.Rect(screen_pos[0], screen_pos[1], r.w, r.h)
         pg.draw.rect(surf, (50,220,150), r)
 
-    def update(self, dt, player_pos, projectiles, summons, walls):
+    def update(self, dt, player_pos, walls, projectiles):
         dx = self.vx * dt
         dy = self.vy * dt
         nx, ny, _ = move_and_collide(self.x, self.y, 20, 20, dx, dy, walls, ox=-10, oy=-10, stop_on_collision=False)
@@ -67,10 +47,16 @@ class Warden(Boss):     # bouncing + 5-way volley
                     self.x, self.y, math.cos(rad)*130, math.sin(rad)*130,2,1,False
                 ))
 
-
-class Warlock(Boss):    # bullet rings
-    def __init__(self, x, y):
-        super().__init__(x, y, max_hp=40, name="Warlock"); self.t=0.0; self.hp=self.max_hp
+@register_boss("warlock")
+class Warlock(Enemy):    # bullet rings
+    def __init__(self, x, y, **opts):
+        super().__init__(x, y, hp=40, speed=0.0);
+        self.t=0.0;
+        self.is_boss = True
+        self.max_hp=self.hp
+        
+    def rect(self) -> pg.Rect:
+        return pg.Rect(int(self.x-16), int(self.y-16), 32, 32)
 
     def draw(self, surf: pg.Surface, camera: Camera = None) -> None:
         r = self.rect()
@@ -79,7 +65,7 @@ class Warlock(Boss):    # bullet rings
             r = pg.Rect(screen_pos[0], screen_pos[1], r.w, r.h)
         pg.draw.rect(surf, (180,100,220), r)
 
-    def update(self, dt, player_pos, projectiles, summons, walls):
+    def update(self, dt, player_pos, walls, projectiles):
         self.t += dt; self.x += (160-self.x)*0.5*dt; self.y += (90-self.y)*0.5*dt
         if self.t>=0.8:
             self.t=0.0
@@ -90,11 +76,18 @@ class Warlock(Boss):    # bullet rings
                     self.x,self.y,math.cos(a)*150,math.sin(a)*150,2,1,False
                 ))
 
-
-class KnightCaptain(Boss):      # telegraphed dash
-    def __init__(self, x, y):
-        super().__init__(x, y, max_hp=50, name="Knight Captain")
-        self.state="charge"; self.cd=0.8; self.vx=self.vy=0.0; self.hp=self.max_hp
+@register_boss("knight_captain")
+class KnightCaptain(Enemy):      # telegraphed dash
+    def __init__(self, x, y, **opts):
+        super().__init__(x, y, hp=50, speed=0.0)
+        self.is_boss = True
+        self.max_hp=self.hp
+        self.state="charge";
+        self.cd=0.8;
+        self.vx=self.vy=0.0;
+        
+    def rect(self) -> pg.Rect:
+        return pg.Rect(int(self.x-16), int(self.y-16), 32, 32)
 
     def draw(self, surf: pg.Surface, camera: Camera = None) -> None:
         r = self.rect()
@@ -103,7 +96,7 @@ class KnightCaptain(Boss):      # telegraphed dash
             r = pg.Rect(screen_pos[0], screen_pos[1], r.w, r.h)
         pg.draw.rect(surf, (200,180,80) if self.state=="charge" else (220,140,60), r)
 
-    def update(self, dt, player_pos, projectiles, summons, walls):
+    def update(self, dt, player_pos, walls, projectiles):
         if self.state=="charge":
             self.cd-=dt
             if self.cd<0:
@@ -121,4 +114,39 @@ class KnightCaptain(Boss):      # telegraphed dash
                 self.cd = 0.8
             if self.cd<=0: self.state="charge"; self.cd=0.8
 
-BOSSES = [Warden, Warlock, KnightCaptain]
+@register_boss("ogre_boss")
+class OgreBoss(Enemy):
+    def __init__(self, x, y, **opts):
+        super().__init__(x, y, hp=50, speed=60.0)
+        self.is_boss = True
+        self.max_hp = self.hp
+        self._state = "charge"
+        self._cd = 0.8
+        self.vx = 0.0; self.vy = 0.0
+        
+    def rect(self) -> pg.Rect:
+        return pg.Rect(int(self.x-16), int(self.y-16), 32, 32)
+    
+    def draw(self, surf: pg.Surface, camera: Camera | None = None) -> None:
+        r = self.rect();
+        if camera is not None: sx, sy = camera.world_to_screen(r.x, r.y); r = pg.Rect(sx, sy, r.w, r.h)
+        pg.draw.rect(surf, (180, 80, 60), r)
+        
+    def update(self, dt: float, player_pos: pg.Vector2, walls, projectiles):
+        self._cd = max(0.0, self._cd - dt)
+        if self._state == "charge":
+            if self._cd <= 0.0:
+                d = (player_pos - self.center())
+                if d.length_squared() > 0:
+                    d = d.normalize(); speed = 260.0
+                    self.vx, self.vy = d.x*speed, d.y*speed
+                    self._cd = 0.6; self._state = "dash"
+        else: # dash
+            nx, ny, collided = move_and_collide(self.x, self.y, 24, 24, self.vx*dt, self.vy*dt, walls, ox=-12, oy=-12, stop_on_collision=False)
+            self.x, self.y = nx, ny
+            if collided or self._cd <= 0.0:
+                self._state = "charge"; self._cd = 0.8
+                for i in range(12):
+                    ang = i * (3.14159 * 2 / 12)
+                    v = pg.math.Vector2(160.0, 0).rotate_rad(ang)
+                    projectiles.append(Projectile(self.x, self.y, v.x, v.y, 2, 1, False))
