@@ -49,6 +49,22 @@ SPAWN_PATTERNS: Dict[str, List[Spawn]] = {
     "skeleton_line":       [Spawn("skeleton",0.25,0.50,{}), Spawn("skeleton",0.40,0.50,{}), Spawn("skeleton",0.60,0.50,{}), Spawn("skeleton",0.75,0.50,{})],
     "mixed_cross":         [Spawn("slime",0.50,0.30,{}), Spawn("bat",0.30,0.50,{}), Spawn("skeleton",0.50,0.70,{}), Spawn("bat",0.70,0.50,{})],
     "zigzag":              [Spawn("bat", 0.2, 0.2, {}), Spawn("slime", 0.4, 0.4, {}), Spawn("bat", 0.6, 0.6, {}), Spawn("slime", 0.8, 0.8, {})],
+    "diamond":             [Spawn("slime", 0.50, 0.25, {}), Spawn("bat",   0.25, 0.50, {}), Spawn("slime", 0.50, 0.75, {}), Spawn("bat",   0.75, 0.50, {})],
+    "arc_left": [
+        Spawn("skeleton", 0.20, 0.30, {}),
+        Spawn("skeleton", 0.20, 0.50, {}),
+        Spawn("skeleton", 0.20, 0.70, {}),
+        Spawn("bat",      0.35, 0.40, {}),
+        Spawn("bat",      0.35, 0.60, {}),
+    ],
+    "staggered_rows": [
+        Spawn("slime", 0.30, 0.35, {}),
+        Spawn("slime", 0.50, 0.35, {}),
+        Spawn("slime", 0.70, 0.35, {}),
+        Spawn("bat",   0.40, 0.55, {}),
+        Spawn("bat",   0.60, 0.55, {}),
+        Spawn("skeleton", 0.50, 0.75, {}),
+        ],
 }
 
 def spawn_from_pattern(pattern_name: str, room_rect, create_fn=create_enemy):

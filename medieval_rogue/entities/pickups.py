@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 import pygame as pg
 from medieval_rogue.entities.base import Entity
-from medieval_rogue.items.basic_items import ITEMS
+from medieval_rogue.items.basic_items import get_item_by_name
 
 
 @dataclass
@@ -21,7 +21,6 @@ class ItemPickup(Entity):
         
     def update(self, dt, player, **kwargs):
         if player.rect().colliderect(self.rect()):
-            from medieval_rogue.items.basic_items import get_item_by_name
             it = get_item_by_name(self.item_id)
             if it:
                 it.apply(player)

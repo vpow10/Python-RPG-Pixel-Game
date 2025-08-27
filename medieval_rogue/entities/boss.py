@@ -1,10 +1,8 @@
 from __future__ import annotations
 import pygame as pg, random, math
-from dataclasses import dataclass
 from medieval_rogue.entities.projectile import Projectile
 from medieval_rogue.entities.utilities import move_and_collide
 from medieval_rogue.camera import Camera
-from medieval_rogue.entities.base import Entity
 from medieval_rogue.entities.enemy import Enemy
 from medieval_rogue.entities.enemy_registry import register_boss
 
@@ -150,3 +148,7 @@ class OgreBoss(Enemy):
                     ang = i * (3.14159 * 2 / 12)
                     v = pg.math.Vector2(160.0, 0).rotate_rad(ang)
                     projectiles.append(Projectile(self.x, self.y, v.x, v.y, 2, 1, False))
+
+BOSSES = [
+    "warden", "warlock", "knight_captain", "ogre_boss"
+]
