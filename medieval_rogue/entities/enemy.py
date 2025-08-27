@@ -4,41 +4,42 @@ from dataclasses import dataclass
 from medieval_rogue.entities.projectile import Projectile
 from medieval_rogue.entities.utilities import move_and_collide
 from medieval_rogue.camera import Camera
+from medieval_rogue.entities.enemy_registry import register
+from medieval_rogue.entities.base import Entity
 
 
 @dataclass
-class Enemy:
-    x: float; y: float; hp: int; speed: float
+class Enemy(Entity):
+    hp: int = 1
+    speed: float = 40.0
     touch_damage: int = 1
-    alive: bool = True
-
-    def rect(self) -> pg.Rect: return pg.Rect(int(self.x-5), int(self.y-5), 10, 10)
-
-    def center(self) -> pg.Vector2: return pg.Vector2(self.x, self.y)
-
-    def update(self, dt:float, player_pos: pg.Vector2, projectiles: list[Projectile], walls: list[pg.Rect]) -> None: ...
-
-    def draw(self, surf: pg.Surface) -> None: pg.draw.rect(surf, (160,70,70), self.rect())
-
-
+    
+    def rect(self):
+        return pg.Rect(int(self.x-8), int(self.y-8), 16, 16)
+    
+    def update(self, dt, player_pos, walls, projectiles, **kwargs):
+        pass
+    
+@register("slime")
 class Slime(Enemy):
-    def __init__(self, x, y): super().__init__(x, y, hp=2, speed=40.0)
-
-    def draw(self, surf: pg.Surface, camera: Camera = None) -> None:
+    def __init__(self, x, y, **opts):
+        super().__init__(x, y, hp=3, speed=40.0)
+        
+    def draw(self, surf, camera: Camera=None):
         r = self.rect()
         if camera is not None:
             screen_pos = camera.world_to_screen(r.x, r.y)
             r = pg.Rect(screen_pos[0], screen_pos[1], r.w, r.h)
-        pg.draw.rect(surf, (90,200,120), r)
-
-    def update(self, dt, player_pos, projectiles, walls):
+        pg.draw.ellipse(surf, (100,200,100), r)
+    
+    def update(self, dt, player_pos, walls, projectiles):
         v = player_pos - self.center()
         if v.length_squared() > 1:
             step = v.normalize() * self.speed * dt
             nx, ny, _ = move_and_collide(self.x, self.y, 10, 10, step.x, step.y, walls, ox=-5, oy=-5, stop_on_collision=False)
             self.x, self.y = nx, ny
 
-
+@register("bat")
 class Bat(Enemy):
     def __init__(self, x, y): super().__init__(x, y, hp=1, speed=80.0)
 
@@ -49,7 +50,7 @@ class Bat(Enemy):
             r = pg.Rect(screen_pos[0], screen_pos[1], r.w, r.h)
         pg.draw.rect(surf, (120,120,220), r)
 
-    def update(self, dt, player_pos, projectiles, walls):
+    def update(self, dt, player_pos, walls, projectiles):
         v = player_pos - self.center()
         if v.length_squared() > 1:
             jitter = pg.Vector2(random.uniform(-0.5,0.5), random.uniform(-0.5,0.5))*0.3
@@ -57,7 +58,7 @@ class Bat(Enemy):
             nx, ny, _ = move_and_collide(self.x, self.y, 10, 10, step.x, step.y, walls, ox=-5, oy=-5, stop_on_collision=False)
             self.x, self.y = nx, ny
 
-
+@register("skeleton")
 class Skeleton(Enemy):
     def __init__(self, x, y):
         super().__init__(x, y, hp=3, speed=50.0)
@@ -70,7 +71,7 @@ class Skeleton(Enemy):
             r = pg.Rect(screen_pos[0], screen_pos[1], r.w, r.h)
         pg.draw.rect(surf, (220,220,220), r)
 
-    def update(self, dt, player_pos, projectiles, walls):
+    def update(self, dt, player_pos, walls, projectiles):
         v = player_pos - self.center()
         dist = v.length()
 

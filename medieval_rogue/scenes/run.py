@@ -13,6 +13,7 @@ from medieval_rogue.ui.hud import draw_hud
 from medieval_rogue.ui.minimap import draw_minimap
 from assets.sound_manager import load_sounds
 from medieval_rogue.camera import Camera
+from medieval_rogue.entities.pickups import ItemPickup
 
 
 class RunScene(Scene):
@@ -208,11 +209,20 @@ class RunScene(Scene):
 
         # Boss
         if self.boss:
-            self.boss.update(dt, self.player.center(), self.e_projectiles, self.enemies, walls)
-            if self.boss.rect().colliderect(self.player.rect()):
-                if self.player.take_damage(self.boss.touch_damage):
-                    self.sfx_player_hit.play()
-                    self.timescale = 0.05; self.hitstop_timer = 0.02
+            if self.boss.alive:
+                self.boss.update(dt, self.player.center(), self.e_projectiles, self.enemies, walls)
+                if self.boss.rect().colliderect(self.player.rect()):
+                    if self.player.take_damage(self.boss.touch_damage):
+                        self.sfx_player_hit.play()
+                        self.timescale = 0.05; self.hitstop_timer = 0.02
+            else:
+                if not self.boss._drops_spawned:
+                    for drop in self.boss.drop_table:
+                        if random.random() <= drop.get("chance", 1.0):
+                            self.pickups.append(ItemPickup(self.boss.x, self.boss.y, item_id=drop["item"]))
+                    self.boss._drops_spawned = True
+
+                
 
         for p in self.projectiles:
             if self.boss and self.boss.alive and p.rect().colliderect(self.boss.rect()):
@@ -264,6 +274,7 @@ class RunScene(Scene):
             self.next_scene = "gameover"
 
     def draw(self, surf: pg.Surface) -> None:
+        w, h = S.BASE_W, S.BASE_H
         self.current_room.draw(surf)
         for p in self.projectiles: p.draw(surf, camera=self.camera)
         for p in self.e_projectiles: p.draw(surf, camera=self.camera)

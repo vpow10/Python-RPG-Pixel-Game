@@ -4,7 +4,19 @@ from dataclasses import dataclass
 from medieval_rogue.entities.projectile import Projectile
 from medieval_rogue.entities.utilities import move_and_collide
 from medieval_rogue.camera import Camera
+from medieval_rogue.entities.enemy_registry import register
+from medieval_rogue.entities.enemy import Enemy
 
+
+@register("ogre_boss")
+class OgreBoss(Enemy):
+    def __init__(self, x, y, **opts):
+        super().__init__(x,y,hp=40,speed=0.6)
+        self.is_boss = True
+        self.drop_table = opts.get("drop_table", [{"item":"Chestplate","chance":1.0}])
+
+    def update(self, dt, player_pos, walls, projectiles):
+        pass
 
 @dataclass
 class Boss:

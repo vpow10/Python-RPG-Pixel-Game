@@ -26,3 +26,8 @@ ITEMS = [
     Item("Quiver", quiver, "+15% fire rate"),
     Item("Chestplate", chestplate, "+1 HP"),
 ]
+
+_item_map = {it.name: it for it in ITEMS}
+
+def get_item_by_name(name):
+    return _item_map.get(name)

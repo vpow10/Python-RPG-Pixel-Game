@@ -5,6 +5,7 @@ from medieval_rogue import settings as S
 from medieval_rogue.entities.projectile import Projectile
 from medieval_rogue.entities.utilities import move_and_collide
 from medieval_rogue.camera import Camera
+from typing import List
 
 
 @dataclass
@@ -17,6 +18,7 @@ class Player:
     damage: int = S.PLAYER_BASE_DAMAGE
     fire_cd: float = 0.0
     invuln_timer: float = 0.0
+    inventory: List = []
 
     def __post_init__(self):
         from assets.sound_manager import load_sounds
@@ -52,6 +54,10 @@ class Player:
             self.invuln_timer = 1.0
             return True
         return False
+    
+    def apply_item(self, item):
+        item.apply(self)
+        self.inventory.append(item.name)
 
     def draw(self, surf: pg.Surface, camera: Camera=None) -> None:
         if self.invuln_timer > 0 and int(self.invuln_timer * 10) % 2 == 0:
