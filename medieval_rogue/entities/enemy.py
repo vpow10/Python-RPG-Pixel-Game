@@ -6,6 +6,7 @@ from medieval_rogue.entities.utilities import move_and_collide
 from medieval_rogue.camera import Camera
 from medieval_rogue.entities.base import Entity
 from medieval_rogue.entities.enemy_registry import register_enemy
+from medieval_rogue import settings as S
 
 
 @dataclass
@@ -15,30 +16,37 @@ class Enemy(Entity):
     touch_damage: int = 1
 
     def rect(self):
-        return pg.Rect(int(self.x-8), int(self.y-8), 16, 16)
+        w, h = S.ENEMY_HITBOX
+        return pg.Rect(int(self.x-w//2), int(self.y-h), w, h)
 
     def update(self, dt, player_pos, walls, projectiles, **kwargs):
         pass
 
-@register_enemy("slime")
+@register_enemy("slime", sprite_id="slime")
 class Slime(Enemy):
     def __init__(self, x, y, **opts):
         super().__init__(x, y, hp=3, speed=90.0)
 
     def draw(self, surf, camera: Camera=None):
-        r = self.rect();
-        if camera is not None: sx, sy = camera.world_to_screen(r.x, r.y); r = pg.Rect(sx, sy, r.w, r.h)
-        pg.draw.ellipse(surf, (100,200,100), r)
+        if hasattr(self, 'sprite') and self.sprite:
+            self.sprite.draw(surf, self.x, self.y, camera=camera)
+        else:
+            r = self.rect();
+            if camera is not None: sx, sy = camera.world_to_screen(r.x, r.y); r = pg.Rect(sx, sy, r.w, r.h)
+            pg.draw.ellipse(surf, (100,200,100), r)
 
     def update(self, dt, player_pos, walls, projectiles):
         v = player_pos - self.center()
+        w, h = S.ENEMY_HITBOX
+        ox = -w//2
+        oy = -h
         if v.length_squared() > 1:
             step = v.normalize() * self.speed * dt
-            nx, ny, collided = move_and_collide(self.x, self.y, 16, 16, step.x, step.y, walls, ox=-8, oy=-8, stop_on_collision=False)
+            nx, ny, collided = move_and_collide(self.x, self.y, w, h, step.x, step.y, walls, ox=ox, oy=oy, stop_on_collision=False)
             if collided:
                 # try axis-aligned fallbacks and pick the one that moves further
-                nx_h, ny_h, _ = move_and_collide(self.x, self.y, 16, 16, step.x, 0, walls, ox=-8, oy=-8, stop_on_collision=False)
-                nx_v, ny_v, _ = move_and_collide(self.x, self.y, 16, 16, 0, step.y, walls, ox=-8, oy=-8, stop_on_collision=False)
+                nx_h, ny_h, _ = move_and_collide(self.x, self.y, w, h, step.x, 0, walls, ox=ox, oy=oy, stop_on_collision=False)
+                nx_v, ny_v, _ = move_and_collide(self.x, self.y, w, h, 0, step.y, walls, ox=ox, oy=oy, stop_on_collision=False)
                 dist_h = (nx_h - self.x)**2 + (ny_h - self.y)**2
                 dist_v = (nx_v - self.x)**2 + (ny_v - self.y)**2
                 if dist_h >= dist_v and dist_h > 0:
@@ -50,48 +58,60 @@ class Slime(Enemy):
                     ang = random.uniform(0, math.tau)
                     sidex = math.cos(ang) * (self.speed * dt * 0.5)
                     sidey = math.sin(ang) * (self.speed * dt * 0.5)
-                    nx, ny, _ = move_and_collide(self.x, self.y, 16, 16, sidex, sidey, walls, ox=-8, oy=-8, stop_on_collision=False)
+                    nx, ny, _ = move_and_collide(self.x, self.y, w, h, sidex, sidey, walls, ox=ox, oy=oy, stop_on_collision=False)
             self.x, self.y = nx, ny
 
-@register_enemy("bat")
+@register_enemy("bat", sprite_id="bat")
 class Bat(Enemy):
     def __init__(self, x, y, **opts):
         super().__init__(x, y, hp=1, speed=180.0)
 
     def draw(self, surf, camera: Camera=None):
-        r = self.rect();
-        if camera is not None: sx, sy = camera.world_to_screen(r.x, r.y); r = pg.Rect(sx, sy, r.w, r.h)
-        pg.draw.rect(surf, (120,120,220), r)
+        if hasattr(self, 'sprite') and self.sprite:
+            self.sprite.draw(surf, self.x, self.y, camera=camera)
+        else:
+            r = self.rect();
+            if camera is not None: sx, sy = camera.world_to_screen(r.x, r.y); r = pg.Rect(sx, sy, r.w, r.h)
+            pg.draw.rect(surf, (120,120,220), r)
 
     def update(self, dt, player_pos, walls, projectiles):
         v = player_pos - self.center()
+        w, h = S.ENEMY_HITBOX
+        ox = -w//2
+        oy = -h
         if v.length_squared() > 1:
             jitter = pg.Vector2(random.uniform(-0.5,0.5), random.uniform(-0.5,0.5))*0.5
             step = (v.normalize() + jitter).normalize() * self.speed * dt
-            nx, ny, collided = move_and_collide(self.x, self.y, 16, 16, step.x, step.y, walls, ox=-8, oy=-8, stop_on_collision=False)
+            nx, ny, collided = move_and_collide(self.x, self.y, w, h, step.x, step.y, walls, ox=ox, oy=oy, stop_on_collision=False)
             if collided:
                 # sliding fallback (horizontal / vertical)
-                nx_h, ny_h, _ = move_and_collide(self.x, self.y, 16, 16, step.x, 0, walls, ox=-8, oy=-8, stop_on_collision=False)
-                nx_v, ny_v, _ = move_and_collide(self.x, self.y, 16, 16, 0, step.y, walls, ox=-8, oy=-8, stop_on_collision=False)
+                nx_h, ny_h, _ = move_and_collide(self.x, self.y, w, h, step.x, 0, walls, ox=ox, oy=oy, stop_on_collision=False)
+                nx_v, ny_v, _ = move_and_collide(self.x, self.y, w, h, 0, step.y, walls, ox=ox, oy=oy, stop_on_collision=False)
                 if (nx_h - self.x)**2 + (ny_h - self.y)**2 >= (nx_v - self.x)**2 + (ny_v - self.y)**2:
                     nx, ny = nx_h, ny_h
                 else:
                     nx, ny = nx_v, ny_v
             self.x, self.y = nx, ny
 
-@register_enemy("skeleton")
+@register_enemy("skeleton", sprite_id="skeleton")
 class Skeleton(Enemy):
     def __init__(self, x, y, **opts):
         super().__init__(x, y, hp=3, speed=120.0)
         self.shoot_cd = random.uniform(0.5, 1.2)
 
     def draw(self, surf, camera: Camera=None):
-        r = self.rect();
-        if camera is not None: sx, sy = camera.world_to_screen(r.x, r.y); r = pg.Rect(sx, sy, r.w, r.h)
-        pg.draw.rect(surf, (220,220,220), r)
+        if hasattr(self, 'sprite') and self.sprite:
+            self.sprite.draw(surf, self.x, self.y, camera=camera)
+        else:
+            r = self.rect();
+            if camera is not None: sx, sy = camera.world_to_screen(r.x, r.y); r = pg.Rect(sx, sy, r.w, r.h)
+            pg.draw.rect(surf, (220,220,220), r)
 
     def update(self, dt, player_pos, walls, projectiles):
         v = player_pos - self.center()
+        w, h = S.ENEMY_HITBOX
+        ox = -w//2
+        oy = -h
         dist = v.length()
         step = pg.Vector2(0,0)
         if dist > 1:
@@ -101,11 +121,11 @@ class Skeleton(Enemy):
             elif dist < 300:
                 step = -n * (self.speed * dt)
 
-        nx, ny, collided = move_and_collide(self.x, self.y, 16, 16, step.x, step.y, walls, ox=-8, oy=-8, stop_on_collision=False)
+        nx, ny, collided = move_and_collide(self.x, self.y, w, h, step.x, step.y, walls, ox=ox, oy=oy, stop_on_collision=False)
         if collided:
             # try axis fallback
-            nx_h, ny_h, _ = move_and_collide(self.x, self.y, 16, 16, step.x, 0, walls, ox=-8, oy=-8, stop_on_collision=False)
-            nx_v, ny_v, _ = move_and_collide(self.x, self.y, 16, 16, 0, step.y, walls, ox=-8, oy=-8, stop_on_collision=False)
+            nx_h, ny_h, _ = move_and_collide(self.x, self.y, w, h, step.x, 0, walls, ox=ox, oy=oy, stop_on_collision=False)
+            nx_v, ny_v, _ = move_and_collide(self.x, self.y, w, h, 0, step.y, walls, ox=ox, oy=oy, stop_on_collision=False)
             if (nx_h - self.x)**2 + (ny_h - self.y)**2 >= (nx_v - self.x)**2 + (ny_v - self.y)**2:
                 nx, ny = nx_h, ny_h
             else:

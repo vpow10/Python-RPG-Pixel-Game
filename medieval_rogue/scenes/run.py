@@ -32,7 +32,7 @@ class RunScene(Scene):
             )
         else:
             stats = PlayerStats()
-        self.player = Player(S.BASE_W//2, S.BASE_H//2, stats=stats)
+        self.player = Player(S.BASE_W//2, S.BASE_H//2, stats=stats, sprite_id=pc.sprite_id if pc else "archer")
         self.player.sfx_shot = self.sounds.get("arrow_shot")
         self.projectiles: list[Projectile] = []
         self.e_projectiles: list[Projectile] = []

@@ -6,6 +6,7 @@ from medieval_rogue import settings as S
 from medieval_rogue.entities.projectile import Projectile
 from medieval_rogue.entities.utilities import move_and_collide
 from medieval_rogue.camera import Camera
+from assets.sprite_manager import AnimatedSprite, _load_image, slice_sheet
 
 
 @dataclass
@@ -24,10 +25,14 @@ class Player:
     fire_cd: float = 0.0
     invuln_timer: float = 0.0
     inventory: List[str] = field(default_factory=list)
+    sprite_id: str = "archer"
 
     def __post_init__(self):
         self.hp = self.stats.hp
         self.sfx_shot = None
+        img = _load_image(['assets', 'sprites', 'player', f'{self.sprite_id}_idle.png'])
+        frames = [img]
+        self.sprite = AnimatedSprite(frames, fps=8, loop=True, anchor='bottom')
 
     @property
     def speed(self) -> float: return self.stats.speed
@@ -39,7 +44,8 @@ class Player:
     def damage(self) -> float: return self.stats.damage
 
     def rect(self) -> pg.Rect:
-        return pg.Rect(int(self.x-8), int(self.y-9), 16, 18)
+        w,h = S.PLAYER_HITBOX
+        return pg.Rect(int(self.x-w//2), int(self.y-h), w, h)
 
     def center(self) -> pg.Vector2:
         r = self.rect(); return pg.Vector2(r.centerx, r.centery)
@@ -50,6 +56,9 @@ class Player:
         self.rect()
 
     def update(self, dt: float, keys, mouse_buttons, mouse_pos, walls: list[pg.Rect], projectiles: list[Projectile]) -> None:
+        w, h = S.PLAYER_HITBOX
+        ox = -w//2
+        oy = -h
         move = pg.Vector2(0,0)
         if keys[pg.K_w] or keys[pg.K_UP]: move.y -= 1
         if keys[pg.K_s] or keys[pg.K_DOWN]: move.y += 1
@@ -57,7 +66,7 @@ class Player:
         if keys[pg.K_d] or keys[pg.K_RIGHT]: move.x += 1
         if move.length_squared() > 0:
             move = move.normalize() * self.speed * dt
-            new_x, new_y, _ = move_and_collide(self.x, self.y, 16, 18, move.x, move.y, walls, ox=-8, oy=-9, stop_on_collision=False)
+            new_x, new_y, _ = move_and_collide(self.x, self.y, w, h, move.x, move.y, walls, ox=ox, oy=oy, stop_on_collision=False)
             self.x, self.y = new_x, new_y
         self.fire_cd = max(0.0, self.fire_cd - dt)
         if mouse_buttons[0] and self.fire_cd <= 0.0:
@@ -69,7 +78,6 @@ class Player:
                 self.fire_cd = 1.0 / self.firerate
         if self.invuln_timer > 0:
             self.invuln_timer -= dt
-
 
     def take_damage(self, dmg: int):
         if self.invuln_timer <= 0:
@@ -85,7 +93,10 @@ class Player:
     def draw(self, surf: pg.Surface, camera: Camera=None) -> None:
         if self.invuln_timer > 0 and int(self.invuln_timer * 10) % 2 == 0:
             return
-        r = self.rect();
-        if camera is not None: sx, sy = camera.world_to_screen(r.x, r.y); r = pg.Rect(sx, sy, r.w, r.h)
-        pg.draw.rect(surf, (60,120,80), r)
-        pg.draw.rect(surf, (30,80,50), (r.x, r.y-3, r.w, 3))
+        if hasattr(self, 'sprite') and self.sprite:
+            self.sprite.draw(surf, self.x, self.y, camera=camera)
+        else:
+            r = self.rect();
+            if camera is not None: sx, sy = camera.world_to_screen(r.x, r.y); r = pg.Rect(sx, sy, r.w, r.h)
+            pg.draw.rect(surf, (60,120,80), r)
+            pg.draw.rect(surf, (30,80,50), (r.x, r.y-3, r.w, 3))

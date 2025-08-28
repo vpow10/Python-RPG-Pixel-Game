@@ -10,6 +10,7 @@ class PlayerClass:
     speed: float
     firerate: float
     proj_speed: float
+    sprite_id: str = "archer"
     description: str = ""
     special: Callable = None  # optional special ability hook
 

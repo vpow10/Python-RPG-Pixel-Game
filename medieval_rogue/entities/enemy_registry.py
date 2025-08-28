@@ -17,9 +17,15 @@ class Registry:
     def create(self, key: str, *args, **kwargs):
         try:
             factory = self._reg[key]
+            inst = factory(*args, **kwargs)
         except KeyError as e:
             raise KeyError(f"Unknown {self.kind} kind: {key!r}. Known: {sorted(self._reg)}") from e
-        return factory(*args, **kwargs)
+        if hasattr(factory, 'sprite_id'):
+            from assets.sprite_manager import _load_image, slice_sheet, AnimatedSprite
+            path = ['assets', 'sprites', 'enemies', f'{factory.sprite_id}_idle.png']
+            img = _load_image(path)
+            inst.sprite = AnimatedSprite([img], fps=8, loop=True, anchor='bottom')
+        return inst
 
     def keys(self) -> Iterable[str]:
         return self._reg.keys()
@@ -52,7 +58,7 @@ create_boss    = BOSSES.create
 @dataclass(frozen=True)
 class Spawn:
     kind: str; rx: float; ry: float; kwargs: dict
-    
+
 SPAWN_PATTERNS: Dict[str, List[Spawn]] = {
     "combat_small_center": [Spawn("slime", 0.50, 0.50, {}), Spawn("slime", 0.35, 0.55, {}), Spawn("bat", 0.60, 0.45, {})],
     "combat_ring":         [Spawn("skeleton",0.50,0.20,{}), Spawn("skeleton",0.20,0.50,{}), Spawn("skeleton",0.80,0.50,{}), Spawn("bat",0.50,0.80,{})],

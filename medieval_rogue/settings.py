@@ -1,10 +1,30 @@
 from __future__ import annotations
 
 
+# PLAN:
+# floor, walls, small enemies, pickups, objects, ui icons = 32x32 pixels
+# player, regular enemies = 64x64 pixels
+# projectiles = 16x16 pixels, big spells 32x32 pixels
+# boss sprites = 96x96 pixels, maybe 128x128 pixels
+
+
 # Logical resolution and scaling
-BASE_W, BASE_H = 1280, 720   # logical pixels
+BASE_W, BASE_H = 1280, 736  # logical pixels
 SCALE = 1                   # window = BASE * SCALE
 FPS = 60
+
+# Sprite / hitbox sizing
+PLAYER_SPRITE_SIZE = 64
+PLAYER_HITBOX = (20, 28)
+
+ENEMY_SPRITE_SIZE = 64
+ENEMY_HITBOX = (16, 16)
+
+BOSS_SPRITE_SIZE = 96
+BOSS_HITBOX = (56, 56)
+
+PROJECTILE_SPRITE_SIZE = 16
+ITEM_SPRITE_SIZE = 32
 
 # Tile and rendering settings
 TILE_SIZE = 32
