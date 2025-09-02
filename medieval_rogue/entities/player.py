@@ -58,7 +58,7 @@ class Player:
 
         self.anims = {
             "idle":  AnimatedSprite(idle_frames,  fps=idle_fps,  loop=True,  anchor='bottom'),
-            "walk":  AnimatedSprite(walk_frames,  fps=10, loop=True,  anchor='bottom'),
+            "walk":  AnimatedSprite(walk_frames,  fps=8, loop=True,  anchor='bottom'),
             "shoot": AnimatedSprite(shoot_frames, fps=12, loop=False, anchor='bottom'),
         }
         self.sprite = self.anims.get("idle")
