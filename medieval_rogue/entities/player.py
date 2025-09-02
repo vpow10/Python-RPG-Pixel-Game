@@ -30,19 +30,38 @@ class Player:
     def __post_init__(self):
         self.hp = self.stats.hp
         self.sfx_shot = None
-        
-        # Load animations 
-        idle_frames = load_strip(['assets', 'sprites', 'player', f'{self.sprite_id}_idle.png'], 64, 64)
-        walk_frames  = load_strip(['assets', 'sprites', 'player', f'{self.sprite_id}_walk.png'],  64, 64)
-        shoot_frames = load_strip(['assets', 'sprites', 'player', f'{self.sprite_id}_shoot.png'], 64, 64)
-        
+        self.facing_left = False
+
+        def _safe_load_strip(path_parts, frame_w: int, frame_h: int) -> list[pg.Surface]:
+            try:
+                frames = load_strip(path_parts, frame_w, frame_h)
+                if not frames:
+                    raise RuntimeError("No frames returned")
+                return frames
+            except Exception:
+                surf = pg.Surface((frame_w, frame_h), pg.SRCALPHA)
+                surf.fill((200, 100, 100, 255))
+                pg.draw.line(surf, (255, 255, 255), (2, 2), (frame_w-3, frame_h-3), 2)
+                pg.draw.line(surf, (255, 255, 255), (frame_w-3, 2), (2, frame_h-3), 2)
+                return [surf]
+
+        FRAME_W, FRAME_H = S.PLAYER_SPRITE_SIZE, S.PLAYER_SPRITE_SIZE
+
+        SPECIAL_IDLE_FPS = {
+            "archer": 2.0,
+        }
+        idle_fps = SPECIAL_IDLE_FPS.get(self.sprite_id, 6.0)
+
+        idle_frames = _safe_load_strip(['assets', 'sprites', 'player', f'{self.sprite_id}_idle.png'], FRAME_W, FRAME_H)
+        walk_frames = _safe_load_strip(['assets', 'sprites', 'player', f'{self.sprite_id}_walk.png'], FRAME_W, FRAME_H)
+        shoot_frames = _safe_load_strip(['assets', 'sprites', 'player', f'{self.sprite_id}_shoot.png'], FRAME_W, FRAME_H)
+
         self.anims = {
-            "idle":  AnimatedSprite(idle_frames,  fps=6,  loop=True,  anchor='bottom'),
+            "idle":  AnimatedSprite(idle_frames,  fps=idle_fps,  loop=True,  anchor='bottom'),
             "walk":  AnimatedSprite(walk_frames,  fps=10, loop=True,  anchor='bottom'),
             "shoot": AnimatedSprite(shoot_frames, fps=12, loop=False, anchor='bottom'),
         }
-        self.sprite = self.anims["idle"]
-        self.facing_left = False
+        self.sprite = self.anims.get("idle")
         
     def _set_anim(self, name: str):
         nxt = self.anims[name]
@@ -72,25 +91,38 @@ class Player:
         self.rect()
 
     def update(self, dt: float, keys, mouse_buttons, mouse_pos, walls: list[pg.Rect], projectiles: list[Projectile]) -> None:
-        self.sprite.update(dt)
-        is_moving = move.length_squared() > 0
-        self._set_anim("walk" if is_moving else "idle")
-        self.facing_left = mouse_pos[0] < self.x
-        w, h = S.PLAYER_HITBOX
-        ox = -w//2
-        oy = -h
-        move = pg.Vector2(0,0)
+        if self.sprite:
+            self.sprite.update(dt)
+
+        move = pg.Vector2(0, 0)
         if keys[pg.K_w] or keys[pg.K_UP]: move.y -= 1
         if keys[pg.K_s] or keys[pg.K_DOWN]: move.y += 1
         if keys[pg.K_a] or keys[pg.K_LEFT]: move.x -= 1
         if keys[pg.K_d] or keys[pg.K_RIGHT]: move.x += 1
-        if is_moving > 0:
+
+        is_moving = move.length_squared() > 0
+
+        self._set_anim("walk" if is_moving else "idle")
+
+        try:
+            self.facing_left = mouse_pos[0] < self.x
+        except Exception:
+            self.facing_left = False
+
+        # apply movement
+        if is_moving:
             move = move.normalize() * self.speed * dt
+            w, h = S.PLAYER_HITBOX
+            ox = -w // 2
+            oy = -h
             new_x, new_y, _ = move_and_collide(self.x, self.y, w, h, move.x, move.y, walls, ox=ox, oy=oy, stop_on_collision=False)
             self.x, self.y = new_x, new_y
+
+        # firing
         self.fire_cd = max(0.0, self.fire_cd - dt)
         if mouse_buttons[0] and self.fire_cd <= 0.0:
-            if self.sfx_shot: self.sfx_shot.play()
+            if self.sfx_shot:
+                self.sfx_shot.play()
             self._set_anim("shoot")
             self.sprite.loop = False
             self.sprite.paused = False
@@ -99,8 +131,10 @@ class Player:
                 v = dir_vec.normalize() * self.proj_speed
                 projectiles.append(Projectile(self.x, self.y, v.x, v.y, 6, self.damage, True))
                 self.fire_cd = 1.0 / self.firerate
-        if self.sprite is self.anims["shoot"] and self.sprite.paused:
+
+        if self.sprite is self.anims.get("shoot") and self.sprite.paused:
             self._set_anim("walk" if is_moving else "idle")
+
         if self.invuln_timer > 0:
             self.invuln_timer -= dt
 

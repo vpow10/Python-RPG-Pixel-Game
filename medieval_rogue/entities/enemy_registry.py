@@ -8,8 +8,13 @@ class Registry:
         self.kind = kind
         self._reg: Dict[str, Callable[..., object]] = {}
 
-    def register(self, key: str):
+    def register(self, key: str, **meta):
         def deco(cls_or_fn: Callable[..., object]):
+            for k, v in meta.items():
+                try:
+                    setattr(cls_or_fn, k, v)
+                except Exception:
+                    pass
             self._reg[key] = cls_or_fn
             return cls_or_fn
         return deco
@@ -23,7 +28,10 @@ class Registry:
         if hasattr(factory, 'sprite_id'):
             from assets.sprite_manager import _load_image, slice_sheet, AnimatedSprite
             path = ['assets', 'sprites', 'enemies', f'{factory.sprite_id}_idle.png']
-            img = _load_image(path)
+            try:
+                img = _load_image(path)
+            except FileNotFoundError:
+                return inst
             inst.sprite = AnimatedSprite([img], fps=8, loop=True, anchor='bottom')
         return inst
 

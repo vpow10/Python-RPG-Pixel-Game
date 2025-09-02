@@ -10,7 +10,7 @@ class PlayerClass:
     speed: float
     firerate: float
     proj_speed: float
-    sprite_id: str = "archer"
+    sprite_id: str
     description: str = ""
     special: Callable = None  # optional special ability hook
 
@@ -37,6 +37,7 @@ register_player_class(
         speed=220.0,
         firerate=3.0,
         proj_speed=280.0,
+        sprite_id="archer",
         description="Balanced class with strong DPS.",
     )
 )
@@ -50,6 +51,7 @@ register_player_class(
         speed=250.0,
         firerate=2.0,
         proj_speed=190.0,
+        sprite_id="rogue",
         description="Fast and agile, but fragile.",
     )
 )
@@ -63,6 +65,7 @@ register_player_class(
         speed=190.0,
         firerate=1.3,
         proj_speed=160.0,
+        sprite_id="mage",
         description="Powerful projectiles, but slow cast.",
     )
 )

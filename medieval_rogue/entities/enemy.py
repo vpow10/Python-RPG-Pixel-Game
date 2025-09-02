@@ -16,7 +16,6 @@ class Enemy(Entity):
     speed: float = 40.0
     touch_damage: int = 1
     sprite: AnimatedSprite | None = None
-    sprite_id: str
     
     def __post_init__(self):
         try:
@@ -35,7 +34,7 @@ class Enemy(Entity):
 @register_enemy("slime", sprite_id="slime")
 class Slime(Enemy):
     def __init__(self, x, y, **opts):
-        super().__init__(x, y, hp=3, speed=90.0)
+        super().__init__(x, y, sprite_id="slime", hp=3, speed=90.0)
 
     def draw(self, surf, camera: Camera=None):
         if self.sprite:
@@ -74,7 +73,7 @@ class Slime(Enemy):
 @register_enemy("bat", sprite_id="bat")
 class Bat(Enemy):
     def __init__(self, x, y, **opts):
-        super().__init__(x, y, hp=1, speed=180.0)
+        super().__init__(x, y, hp=1, sprite_id="bat", speed=180.0)
 
     def draw(self, surf, camera: Camera=None):
         if hasattr(self, 'sprite') and self.sprite:
@@ -106,7 +105,7 @@ class Bat(Enemy):
 @register_enemy("skeleton", sprite_id="skeleton")
 class Skeleton(Enemy):
     def __init__(self, x, y, **opts):
-        super().__init__(x, y, hp=3, speed=120.0)
+        super().__init__(x, y, hp=3, sprite_id="skeleton", speed=120.0)
         self.shoot_cd = random.uniform(0.5, 1.2)
 
     def draw(self, surf, camera: Camera=None):

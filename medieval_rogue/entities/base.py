@@ -7,6 +7,7 @@ from dataclasses import dataclass
 class Entity:
     x: float
     y: float
+    sprite_id: str
     alive: bool = True
 
     def rect(self) -> pg.Rect:
