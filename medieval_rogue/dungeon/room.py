@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from typing import Literal, List, Tuple, Dict
 from medieval_rogue import settings as S
 from medieval_rogue.camera import Camera
+from assets.sprite_manager import _load_image
 
 
 RoomType = Literal["combat", "item", "boss", "start"]
@@ -53,6 +54,28 @@ PATTERNS: Dict[Tuple[RoomType, int, int], List[List[RectSpec]]] = {
         [(160, 100, 280, 20), (160, 260, 280, 20)],
     ],
 }
+
+# Helpers
+def _blit_tiled(surf: pg.Surface, img: pg.Surface, rect: pg.Rect):
+    tw, th = img.get_width(), img.get_height()
+    for yy in range(rect.top, rect.bottom, th):
+        for xx in range(rect.left, rect.right, tw):
+            surf.blit(img, (xx, yy))
+            
+_FLOOR   = None
+_WALL    = None
+_OBS     = None
+
+def _get_tiles():
+    global _FLOOR, _WALL, _OBS
+    if _FLOOR is None:
+        try:
+            _FLOOR  = _load_image(['assets','sprites','tiles','floor_32.png'])
+            _WALL   = _load_image(['assets','sprites','tiles','wall_32.png'])
+            _OBS    = _load_image(['assets','sprites','tiles','obstacle_32.png'])
+        except Exception:
+            _FLOOR = _WALL = _OBS = None
+    return _FLOOR, _WALL, _OBS
 
 @dataclass
 class Door:
@@ -164,14 +187,25 @@ class Room:
             if camera is None: return r
             x, y = camera.world_to_screen(r.x, r.y)
             return pg.Rect(int(x), int(y), int(r.w), int(r.h))
+        
+        FLOOR, WALL, OBS = _get_tiles()
 
-        pg.draw.rect(surf, S.FLOOR_COLOR, _apply(self.world_rect))
+        if FLOOR:
+            pg.draw.rect(surf, (0,0,0,0), _apply(self.world_rect))  # no-op, reserve rect
+            _blit_tiled(surf, FLOOR, _apply(self.world_rect))
+        else:
+            pg.draw.rect(surf, S.FLOOR_COLOR, _apply(self.world_rect))
 
+        # walls
         walls = self.wall_rects()
         for w in walls[:4]:
-            pg.draw.rect(surf, S.BORDER_COLOR, _apply(w))
+            if WALL: _blit_tiled(surf, WALL, _apply(w))
+            else:    pg.draw.rect(surf, S.BORDER_COLOR, _apply(w))
         for w in walls[4:]:
-            pg.draw.rect(surf, S.OBSTACLES_COLOR, _apply(w))
+            if OBS: _blit_tiled(surf, OBS, _apply(w))
+            else:   pg.draw.rect(surf, S.OBSTACLES_COLOR, _apply(w))
+
+        # doors
         for d in self.doors.values():
             color = S.DOOR_OPEN_COLOR if d.open else S.DOOR_CLOSED_COLOR
             pg.draw.rect(surf, color, _apply(d.rect))

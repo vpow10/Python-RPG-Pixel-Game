@@ -6,7 +6,7 @@ from medieval_rogue import settings as S
 from medieval_rogue.entities.projectile import Projectile
 from medieval_rogue.entities.utilities import move_and_collide
 from medieval_rogue.camera import Camera
-from assets.sprite_manager import AnimatedSprite, _load_image, slice_sheet
+from assets.sprite_manager import AnimatedSprite, _load_image, slice_sheet, load_strip
 
 
 @dataclass
@@ -30,9 +30,25 @@ class Player:
     def __post_init__(self):
         self.hp = self.stats.hp
         self.sfx_shot = None
-        img = _load_image(['assets', 'sprites', 'player', f'{self.sprite_id}_idle.png'])
-        frames = [img]
-        self.sprite = AnimatedSprite(frames, fps=8, loop=True, anchor='bottom')
+        
+        # Load animations 
+        idle_frames = load_strip(['assets', 'sprites', 'player', f'{self.sprite_id}_idle.png'], 64, 64)
+        walk_frames  = load_strip(['assets', 'sprites', 'player', f'{self.sprite_id}_walk.png'],  64, 64)
+        shoot_frames = load_strip(['assets', 'sprites', 'player', f'{self.sprite_id}_shoot.png'], 64, 64)
+        
+        self.anims = {
+            "idle":  AnimatedSprite(idle_frames,  fps=6,  loop=True,  anchor='bottom'),
+            "walk":  AnimatedSprite(walk_frames,  fps=10, loop=True,  anchor='bottom'),
+            "shoot": AnimatedSprite(shoot_frames, fps=12, loop=False, anchor='bottom'),
+        }
+        self.sprite = self.anims["idle"]
+        self.facing_left = False
+        
+    def _set_anim(self, name: str):
+        nxt = self.anims[name]
+        if self.sprite is not nxt:
+            nxt.paused = False; nxt.idx = 0; nxt.t = 0.0
+            self.sprite = nxt
 
     @property
     def speed(self) -> float: return self.stats.speed
@@ -56,6 +72,10 @@ class Player:
         self.rect()
 
     def update(self, dt: float, keys, mouse_buttons, mouse_pos, walls: list[pg.Rect], projectiles: list[Projectile]) -> None:
+        self.sprite.update(dt)
+        is_moving = move.length_squared() > 0
+        self._set_anim("walk" if is_moving else "idle")
+        self.facing_left = mouse_pos[0] < self.x
         w, h = S.PLAYER_HITBOX
         ox = -w//2
         oy = -h
@@ -64,18 +84,23 @@ class Player:
         if keys[pg.K_s] or keys[pg.K_DOWN]: move.y += 1
         if keys[pg.K_a] or keys[pg.K_LEFT]: move.x -= 1
         if keys[pg.K_d] or keys[pg.K_RIGHT]: move.x += 1
-        if move.length_squared() > 0:
+        if is_moving > 0:
             move = move.normalize() * self.speed * dt
             new_x, new_y, _ = move_and_collide(self.x, self.y, w, h, move.x, move.y, walls, ox=ox, oy=oy, stop_on_collision=False)
             self.x, self.y = new_x, new_y
         self.fire_cd = max(0.0, self.fire_cd - dt)
         if mouse_buttons[0] and self.fire_cd <= 0.0:
             if self.sfx_shot: self.sfx_shot.play()
+            self._set_anim("shoot")
+            self.sprite.loop = False
+            self.sprite.paused = False
             dir_vec = pg.Vector2(mouse_pos[0] - self.x, mouse_pos[1] - self.y)
             if dir_vec.length_squared() > 0:
                 v = dir_vec.normalize() * self.proj_speed
                 projectiles.append(Projectile(self.x, self.y, v.x, v.y, 6, self.damage, True))
                 self.fire_cd = 1.0 / self.firerate
+        if self.sprite is self.anims["shoot"] and self.sprite.paused:
+            self._set_anim("walk" if is_moving else "idle")
         if self.invuln_timer > 0:
             self.invuln_timer -= dt
 
@@ -94,7 +119,7 @@ class Player:
         if self.invuln_timer > 0 and int(self.invuln_timer * 10) % 2 == 0:
             return
         if hasattr(self, 'sprite') and self.sprite:
-            self.sprite.draw(surf, self.x, self.y, camera=camera)
+            self.sprite.draw(surf, self.x, self.y, camera=camera, flip_x=self.facing_left)
         else:
             r = self.rect();
             if camera is not None: sx, sy = camera.world_to_screen(r.x, r.y); r = pg.Rect(sx, sy, r.w, r.h)

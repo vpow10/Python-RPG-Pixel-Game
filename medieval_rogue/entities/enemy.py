@@ -7,6 +7,7 @@ from medieval_rogue.camera import Camera
 from medieval_rogue.entities.base import Entity
 from medieval_rogue.entities.enemy_registry import register_enemy
 from medieval_rogue import settings as S
+from assets.sprite_manager import AnimatedSprite, load_strip
 
 
 @dataclass
@@ -14,6 +15,15 @@ class Enemy(Entity):
     hp: int = 1
     speed: float = 40.0
     touch_damage: int = 1
+    sprite: AnimatedSprite | None = None
+    sprite_id: str
+    
+    def __post_init__(self):
+        try:
+            frames = load_strip(['assets','sprites','enemies', f'{self.sprite_id}_idle.png'], 64, 64)
+            self.sprite = AnimatedSprite(frames, fps=6, loop=True, anchor='bottom')
+        except Exception:
+            self.sprite = None
 
     def rect(self):
         w, h = S.ENEMY_HITBOX
@@ -28,7 +38,7 @@ class Slime(Enemy):
         super().__init__(x, y, hp=3, speed=90.0)
 
     def draw(self, surf, camera: Camera=None):
-        if hasattr(self, 'sprite') and self.sprite:
+        if self.sprite:
             self.sprite.draw(surf, self.x, self.y, camera=camera)
         else:
             r = self.rect();

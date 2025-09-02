@@ -26,6 +26,12 @@ def slice_sheet(img: pg.Surface, frame_w: int, frame_h: int) -> List[pg.Surface]
             sheets.append(frame)
     return sheets
 
+def load_strip(path, frame_w: int, frame_h: int) -> List[pg.Surface]:
+    img = _load_image(path)
+    return slice_sheet(img, frame_w, frame_h)
+
+def flip_frames(frames: List[pg.Surface]) -> List[pg.Surface]:
+    return [pg.transform.flip(f, True, False) for f in frames]
 
 class AnimatedSprite:
     def __init__(self, frames: List[pg.Surface], fps: float = 8.0, loop: bool=True, anchor: str='bottom'):
@@ -54,17 +60,17 @@ class AnimatedSprite:
     def current(self) -> pg.Surface:
         return self.frames[self.idx]
 
-    def draw(self, surf: pg.Surface, x: float, y: float, camera=None, scale:int=1):
+    def draw(self, surf: pg.Surface, x: float, y: float, camera=None, scale:int=1, flip_x: bool=False):
         img = self.current()
+        if flip_x:
+            img = pg.transform.flip(img, True, False)
         w, h = img.get_width(), img.get_height()
         if camera is not None:
             sx, sy = camera.world_to_screen(x, y)
         else:
             sx, sy = int(x), int(y)
         if self.anchor == "bottom":
-            blit_x = int(sx - w//2)
-            blit_y = int(sy - h)
-        else:   # center
-            blit_x = int(sx - w//2)
-            blit_y = int(sy - h//2)
+            blit_x = int(sx - w//2); blit_y = int(sy - h)
+        else:
+            blit_x = int(sx - w//2); blit_y = int(sy - h//2)
         surf.blit(img, (blit_x, blit_y))
