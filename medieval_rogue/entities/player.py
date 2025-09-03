@@ -53,7 +53,13 @@ class Player:
             "rogue": 2.0,
             "mage": 2.0,
         }
+        SPECIAL_WALK_FPS = {
+            "archer": 8.0,
+            "rogue": 8.0,
+            "mage": 4.0,
+        }
         idle_fps = SPECIAL_IDLE_FPS.get(self.sprite_id, 6.0)
+        walk_fps = SPECIAL_WALK_FPS.get(self.sprite_id, 8.0)
 
         idle_frames = _safe_load_strip(['assets', 'sprites', 'player', f'{self.sprite_id}', 'idle.png'], FRAME_W, FRAME_H)
         walk_frames = _safe_load_strip(['assets', 'sprites', 'player', f'{self.sprite_id}', 'walk.png'], FRAME_W, FRAME_H)
@@ -62,9 +68,9 @@ class Player:
 
         self.anims = {
             "idle":  AnimatedSprite(idle_frames,  fps=idle_fps,  loop=True,  anchor='bottom'),
-            "walk":  AnimatedSprite(walk_frames,  fps=8, loop=True,  anchor='bottom'),
-            "shoot": AnimatedSprite(shoot_frames, fps=6, loop=True, anchor='bottom'),
-            "walk_shoot": AnimatedSprite(walk_shoot_frames, fps=6, loop=True, anchor='bottom')
+            "walk":  AnimatedSprite(walk_frames,  fps=walk_fps, loop=True,  anchor='bottom'),
+            "shoot": AnimatedSprite(shoot_frames, fps=walk_fps, loop=True, anchor='bottom'),
+            "walk_shoot": AnimatedSprite(walk_shoot_frames, fps=walk_fps, loop=True, anchor='bottom')
         }
         self.sprite = self.anims.get("idle")
         
