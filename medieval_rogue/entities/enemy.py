@@ -19,7 +19,7 @@ class Enemy(Entity):
     
     def __post_init__(self):
         try:
-            frames = load_strip(['assets','sprites','enemies', f'{self.sprite_id}_idle.png'], 64, 64)
+            frames = load_strip(['assets','sprites','enemies', f'{self.sprite_id}_walk.png'], 64, 64)
             self.sprite = AnimatedSprite(frames, fps=6, loop=True, anchor='bottom')
         except Exception:
             self.sprite = None
@@ -35,6 +35,8 @@ class Enemy(Entity):
 class Slime(Enemy):
     def __init__(self, x, y, **opts):
         super().__init__(x, y, sprite_id="slime", hp=3, speed=90.0)
+        frames = load_strip(['assets','sprites','enemies', f'{self.sprite_id}_walk.png'], 32, 32)
+        self.sprite = AnimatedSprite(frames, fps=6, loop=True, anchor='bottom')
 
     def draw(self, surf, camera: Camera=None):
         if self.sprite:
@@ -69,6 +71,8 @@ class Slime(Enemy):
                     sidey = math.sin(ang) * (self.speed * dt * 0.5)
                     nx, ny, _ = move_and_collide(self.x, self.y, w, h, sidex, sidey, walls, ox=ox, oy=oy, stop_on_collision=False)
             self.x, self.y = nx, ny
+        if self.sprite:
+            self.sprite.update(dt)
 
 @register_enemy("bat", sprite_id="bat")
 class Bat(Enemy):
