@@ -1,5 +1,5 @@
 from __future__ import annotations
-import pygame as pg
+import pygame as pg, random
 from dataclasses import dataclass, field
 from typing import Literal, List, Tuple, Dict
 from medieval_rogue import settings as S
@@ -70,11 +70,14 @@ def _get_tiles():
     global _FLOOR, _WALL, _OBS
     if _FLOOR is None:
         try:
-            _FLOOR  = _load_image(['assets','sprites','tiles','floor_32.png'])
-            _WALL   = _load_image(['assets','sprites','tiles','wall_32.png'])
-            _OBS    = _load_image(['assets','sprites','tiles','obstacle_32.png'])
+            _FLOOR  = [
+                _load_image(['assets', 'sprites', 'tiles', 'floor', f'floor_{i}.png'])
+                for i in range(1,8)
+            ]
+            # _WALL   = _load_image(['assets','sprites','tiles','wall_32.png'])
+            # _OBS    = _load_image(['assets','sprites','tiles','obstacle_32.png'])
         except Exception:
-            _FLOOR = _WALL = _OBS = None
+            _FLOOR = []; _WALL = _OBS = None
     return _FLOOR, _WALL, _OBS
 
 @dataclass
@@ -95,7 +98,22 @@ class Room:
     visited: bool = False
     cleared: bool = False
     doors: Dict[Direction, Door] = field(default_factory=dict)
-
+    floor_map: List[List[int]] = field(default_factory=list)
+    
+    def __post_init__(self):
+        # build a random grid of floor tile indices right away
+        FLOOR, _, _ = _get_tiles()
+        if FLOOR:
+            tile_w = FLOOR[0].get_width()
+            tile_h = FLOOR[0].get_height()
+            room_rect = self.world_rect
+            cols = room_rect.width // tile_w + 1
+            rows = room_rect.height // tile_h + 1
+            self.floor_map = [
+                [random.randrange(len(FLOOR)) for _ in range(cols)]
+                for _ in range(rows)
+            ]
+            
     # --- Dimensions & transforms ---
     @property
     def world_rect(self) -> pg.Rect:
@@ -189,10 +207,19 @@ class Room:
             return pg.Rect(int(x), int(y), int(r.w), int(r.h))
         
         FLOOR, WALL, OBS = _get_tiles()
-
-        if FLOOR:
-            pg.draw.rect(surf, (0,0,0,0), _apply(self.world_rect))  # no-op, reserve rect
-            _blit_tiled(surf, FLOOR, _apply(self.world_rect))
+        
+        # draw floor using grid
+        if FLOOR and self.floor_map:
+            tile_w = FLOOR[0].get_width()
+            tile_h = FLOOR[0].get_height()
+            room_rect = self.world_rect
+            for row_i, row in enumerate(self.floor_map):
+                for col_i, idx in enumerate(row):
+                    tile = FLOOR[idx]
+                    x = room_rect.left + col_i * tile_w
+                    y = room_rect.top + row_i * tile_h
+                    rx, ry = (x, y) if camera is None else camera.world_to_screen(x, y)
+                    surf.blit(tile, (rx, ry))
         else:
             pg.draw.rect(surf, S.FLOOR_COLOR, _apply(self.world_rect))
 
