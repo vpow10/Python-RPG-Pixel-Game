@@ -23,6 +23,7 @@ class Player:
     stats: PlayerStats = field(default_factory=PlayerStats)
     hp: int = field(init=False)
     fire_cd: float = 0.0
+    shoot_timer: float = 0.0
     invuln_timer: float = 0.0
     inventory: List[str] = field(default_factory=list)
     sprite_id: str = "archer"
@@ -55,11 +56,13 @@ class Player:
         idle_frames = _safe_load_strip(['assets', 'sprites', 'player', f'{self.sprite_id}_idle.png'], FRAME_W, FRAME_H)
         walk_frames = _safe_load_strip(['assets', 'sprites', 'player', f'{self.sprite_id}_walk.png'], FRAME_W, FRAME_H)
         shoot_frames = _safe_load_strip(['assets', 'sprites', 'player', f'{self.sprite_id}_shoot.png'], FRAME_W, FRAME_H)
+        walk_shoot_frames = _safe_load_strip(['assets', 'sprites', 'player', f'{self.sprite_id}_walk_shoot.png'], FRAME_W, FRAME_H)
 
         self.anims = {
             "idle":  AnimatedSprite(idle_frames,  fps=idle_fps,  loop=True,  anchor='bottom'),
             "walk":  AnimatedSprite(walk_frames,  fps=8, loop=True,  anchor='bottom'),
-            "shoot": AnimatedSprite(shoot_frames, fps=12, loop=False, anchor='bottom'),
+            "shoot": AnimatedSprite(shoot_frames, fps=6, loop=True, anchor='bottom'),
+            "walk_shoot": AnimatedSprite(walk_shoot_frames, fps=6, loop=True, anchor='bottom')
         }
         self.sprite = self.anims.get("idle")
         
@@ -91,50 +94,62 @@ class Player:
         self.rect()
 
     def update(self, dt: float, keys, mouse_buttons, mouse_pos, walls: list[pg.Rect], projectiles: list[Projectile]) -> None:
-        if self.sprite:
-            self.sprite.update(dt)
-
+        # Move inputs
         move = pg.Vector2(0, 0)
         if keys[pg.K_w] or keys[pg.K_UP]: move.y -= 1
         if keys[pg.K_s] or keys[pg.K_DOWN]: move.y += 1
         if keys[pg.K_a] or keys[pg.K_LEFT]: move.x -= 1
         if keys[pg.K_d] or keys[pg.K_RIGHT]: move.x += 1
+        w, h = S.PLAYER_HITBOX
 
         is_moving = move.length_squared() > 0
-
-        self._set_anim("walk" if is_moving else "idle")
-
-        try:
-            self.facing_left = mouse_pos[0] < self.x
-        except Exception:
-            self.facing_left = False
-
-        # apply movement
+        
+        # Timers
+        if self.fire_cd > 0.0:
+            self.fire_cd = max(0.0, self.fire_cd - dt)
+        if self.shoot_timer > 0.0:
+            self.shoot_timer = max(0.0, self.shoot_timer - dt)
+            
+        # Shooting
+        if mouse_buttons[0] and self.fire_cd <= 0.0:
+            dir_vec = pg.Vector2(mouse_pos[0] - self.x, mouse_pos[1] - self.y)
+            if dir_vec.length_squared() > 0:
+                v = dir_vec.normalize() * self.proj_speed
+                projectiles.append(Projectile(self.center()[0]-w//2, self.center()[1]-h//2, v.x, v.y, 6, self.damage, True))
+            self.fire_cd = 1.0 / self.firerate
+            self.shoot_timer = self.fire_cd
+            if self.sfx_shot:
+                self.sfx_shot.play()
+            
+        # Decide animation
+        if self.shoot_timer > 0.0:
+            if is_moving and "walk_shoot" in self.anims:
+                anim_name = "walk_shoot"
+            else:
+                anim_name = "shoot"
+            anim = self.anims[anim_name]
+            if len(anim.frames) > 0 and self.fire_cd > 0.0:
+                anim.fps = len(anim.frames) / (1.0 / self.firerate)
+            self._set_anim(anim_name)
+        else:
+            self._set_anim("walk" if is_moving else "idle")
+            
+        # Move
         if is_moving:
             move = move.normalize() * self.speed * dt
-            w, h = S.PLAYER_HITBOX
             ox = -w // 2
             oy = -h
             new_x, new_y, _ = move_and_collide(self.x, self.y, w, h, move.x, move.y, walls, ox=ox, oy=oy, stop_on_collision=False)
             self.x, self.y = new_x, new_y
-
-        # firing
-        self.fire_cd = max(0.0, self.fire_cd - dt)
-        if mouse_buttons[0] and self.fire_cd <= 0.0:
-            if self.sfx_shot:
-                self.sfx_shot.play()
-            self._set_anim("shoot")
-            self.sprite.loop = False
-            self.sprite.paused = False
-            dir_vec = pg.Vector2(mouse_pos[0] - self.x, mouse_pos[1] - self.y)
-            if dir_vec.length_squared() > 0:
-                v = dir_vec.normalize() * self.proj_speed
-                projectiles.append(Projectile(self.x, self.y, v.x, v.y, 6, self.damage, True))
-                self.fire_cd = 1.0 / self.firerate
-
-        if self.sprite is self.anims.get("shoot") and self.sprite.paused:
-            self._set_anim("walk" if is_moving else "idle")
-
+            
+        # Facing
+        self.facing_left = mouse_pos[0] < self.x
+        
+        # Update animation
+        if self.sprite:
+            self.sprite.update(dt)
+            
+        # Invulnerable timer
         if self.invuln_timer > 0:
             self.invuln_timer -= dt
 
