@@ -50,13 +50,15 @@ class Player:
 
         SPECIAL_IDLE_FPS = {
             "archer": 2.0,
+            "rogue": 2.0,
+            "mage": 2.0,
         }
         idle_fps = SPECIAL_IDLE_FPS.get(self.sprite_id, 6.0)
 
-        idle_frames = _safe_load_strip(['assets', 'sprites', 'player', f'{self.sprite_id}_idle.png'], FRAME_W, FRAME_H)
-        walk_frames = _safe_load_strip(['assets', 'sprites', 'player', f'{self.sprite_id}_walk.png'], FRAME_W, FRAME_H)
-        shoot_frames = _safe_load_strip(['assets', 'sprites', 'player', f'{self.sprite_id}_shoot.png'], FRAME_W, FRAME_H)
-        walk_shoot_frames = _safe_load_strip(['assets', 'sprites', 'player', f'{self.sprite_id}_walk_shoot.png'], FRAME_W, FRAME_H)
+        idle_frames = _safe_load_strip(['assets', 'sprites', 'player', f'{self.sprite_id}', 'idle.png'], FRAME_W, FRAME_H)
+        walk_frames = _safe_load_strip(['assets', 'sprites', 'player', f'{self.sprite_id}', 'walk.png'], FRAME_W, FRAME_H)
+        shoot_frames = _safe_load_strip(['assets', 'sprites', 'player', f'{self.sprite_id}','shoot.png'], FRAME_W, FRAME_H)
+        walk_shoot_frames = _safe_load_strip(['assets', 'sprites', 'player', f'{self.sprite_id}', 'walk_shoot.png'], FRAME_W, FRAME_H)
 
         self.anims = {
             "idle":  AnimatedSprite(idle_frames,  fps=idle_fps,  loop=True,  anchor='bottom'),

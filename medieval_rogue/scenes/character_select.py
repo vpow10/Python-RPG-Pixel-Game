@@ -18,7 +18,7 @@ class CharacterSelect(Scene):
         for cls in self.options:
             sprite_id = getattr(cls, "sprite_id", None) or "archer"
             try:
-                frames = load_strip(['assets', 'sprites', 'player', f'{sprite_id}_idle.png'],
+                frames = load_strip(['assets', 'sprites', 'player', f'{sprite_id}', 'idle.png'],
                                      self.preview_frame_size[0],
                                      self.preview_frame_size[1])
                 # prefer fps from class if present, otherwise default to 2 for idle previews
@@ -119,7 +119,7 @@ class CharacterSelect(Scene):
         footer = self.app.font_small.render(f"{self.index+1} / {len(self.options)}", True, (180,180,180))
         surf.blit(footer, (card_x + card_w - footer.get_width() - 8, card_y + card_h - footer.get_height() - 8))
 
-        preview_area_x = card_x + card_w // 2 + 120
+        preview_area_x = card_x + card_w // 2 + 100
         preview_area_y = card_y + card_h // 2 + 20
 
         sprite_id = getattr(hero, "sprite_id", "archer")
