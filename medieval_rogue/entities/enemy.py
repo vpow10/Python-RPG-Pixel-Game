@@ -78,6 +78,8 @@ class Slime(Enemy):
 class Bat(Enemy):
     def __init__(self, x, y, **opts):
         super().__init__(x, y, hp=1, sprite_id="bat", speed=180.0)
+        frames = load_strip(['assets','sprites','enemies', f'{self.sprite_id}_walk.png'], 32, 32)
+        self.sprite = AnimatedSprite(frames, fps=6, loop=True, anchor='bottom')
 
     def draw(self, surf, camera: Camera=None):
         if hasattr(self, 'sprite') and self.sprite:
@@ -105,6 +107,8 @@ class Bat(Enemy):
                 else:
                     nx, ny = nx_v, ny_v
             self.x, self.y = nx, ny
+        if self.sprite:
+            self.sprite.update(dt)
 
 @register_enemy("skeleton", sprite_id="skeleton")
 class Skeleton(Enemy):

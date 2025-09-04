@@ -125,10 +125,14 @@ class Player:
 
         # Shooting
         if mouse_buttons[0] and self.fire_cd <= 0.0:
-            dir_vec = pg.Vector2(mouse_pos[0] - self.x, mouse_pos[1] - self.y)
+            origin = self.center()
+            if self.cls.id == "mage":
+                origin.x += -w if self.facing_left else w
+                origin.y -= h-6
+            dir_vec = pg.Vector2(mouse_pos[0] - origin.x + w//2, mouse_pos[1] - origin.y + h//2)
             if dir_vec.length_squared() > 0:
                 v = dir_vec.normalize() * self.proj_speed
-                projectiles.append(Projectile(self.center()[0]-w//2, self.center()[1]-h//2, v.x, v.y, 6, self.damage, True, sprite_id=self.projectile_id))
+                projectiles.append(Projectile(origin.x - w//2, origin.y - h//2, v.x, v.y, 6, self.damage, True, sprite_id=self.projectile_id))
             self.fire_cd = 1.0 / self.firerate
             self.shoot_timer = self.fire_cd
             if self.sfx_shot:
