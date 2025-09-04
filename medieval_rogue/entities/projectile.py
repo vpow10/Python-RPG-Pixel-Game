@@ -10,13 +10,14 @@ from assets.sprite_manager import _load_image
 class Projectile:
     x: float; y: float; vx: float; vy: float
     radius: int; damage: int; friendly: bool
+    sprite_id: str
     alive: bool = True
     sprite: pg.Surface | None = None
-    
+
     def __post_init__(self):
         if self.sprite is None:
             try:
-                self.sprite = _load_image(['assets','sprites','projectiles','arrow_16.png'])
+                self.sprite = _load_image(['assets','sprites','projectiles',f'{self.sprite_id}.png'])
             except Exception:
                 self.sprite = None
 

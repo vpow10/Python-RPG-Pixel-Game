@@ -27,6 +27,7 @@ class Player:
     invuln_timer: float = 0.0
     inventory: List[str] = field(default_factory=list)
     sprite_id: str = "archer"
+    projectile_id: str = "arrow"
 
     def __post_init__(self):
         self.hp = self.stats.hp
@@ -73,7 +74,7 @@ class Player:
             "walk_shoot": AnimatedSprite(walk_shoot_frames, fps=walk_fps, loop=True, anchor='bottom')
         }
         self.sprite = self.anims.get("idle")
-        
+
     def _set_anim(self, name: str):
         nxt = self.anims[name]
         if self.sprite is not nxt:
@@ -111,24 +112,24 @@ class Player:
         w, h = S.PLAYER_HITBOX
 
         is_moving = move.length_squared() > 0
-        
+
         # Timers
         if self.fire_cd > 0.0:
             self.fire_cd = max(0.0, self.fire_cd - dt)
         if self.shoot_timer > 0.0:
             self.shoot_timer = max(0.0, self.shoot_timer - dt)
-            
+
         # Shooting
         if mouse_buttons[0] and self.fire_cd <= 0.0:
             dir_vec = pg.Vector2(mouse_pos[0] - self.x, mouse_pos[1] - self.y)
             if dir_vec.length_squared() > 0:
                 v = dir_vec.normalize() * self.proj_speed
-                projectiles.append(Projectile(self.center()[0]-w//2, self.center()[1]-h//2, v.x, v.y, 6, self.damage, True))
+                projectiles.append(Projectile(self.center()[0]-w//2, self.center()[1]-h//2, v.x, v.y, 6, self.damage, True, sprite_id=self.projectile_id))
             self.fire_cd = 1.0 / self.firerate
             self.shoot_timer = self.fire_cd
             if self.sfx_shot:
                 self.sfx_shot.play()
-            
+
         # Decide animation
         if self.shoot_timer > 0.0:
             if is_moving and "walk_shoot" in self.anims:
@@ -141,7 +142,7 @@ class Player:
             self._set_anim(anim_name)
         else:
             self._set_anim("walk" if is_moving else "idle")
-            
+
         # Move
         if is_moving:
             move = move.normalize() * self.speed * dt
@@ -149,14 +150,14 @@ class Player:
             oy = -h
             new_x, new_y, _ = move_and_collide(self.x, self.y, w, h, move.x, move.y, walls, ox=ox, oy=oy, stop_on_collision=False)
             self.x, self.y = new_x, new_y
-            
+
         # Facing
         self.facing_left = mouse_pos[0] < self.x
-        
+
         # Update animation
         if self.sprite:
             self.sprite.update(dt)
-            
+
         # Invulnerable timer
         if self.invuln_timer > 0:
             self.invuln_timer -= dt

@@ -42,7 +42,7 @@ class Warden(Enemy):     # bouncing + 5-way volley
             for ang in (0,72,144,216,288):
                 rad = math.radians(ang)
                 projectiles.append(Projectile(
-                    self.x, self.y, math.cos(rad)*130, math.sin(rad)*130,6,1,False
+                    self.x, self.y, math.cos(rad)*130, math.sin(rad)*130,6,1,False, sprite_id=None
                 ))
 
 @register_boss("warlock")
@@ -87,7 +87,7 @@ class Warlock(Enemy):    # bullet rings
                 dirv = vec.normalize()
                 for spread in (-0.18, 0.0, 0.18):
                     v = dirv.rotate_rad(spread)
-                    projectiles.append(Projectile(self.x, self.y, v.x*220.0, v.y*220.0, 6, 1, False))
+                    projectiles.append(Projectile(self.x, self.y, v.x*220.0, v.y*220.0, 6, 1, False, sprite_id=None))
 
 
 @register_boss("knight_captain")
@@ -138,7 +138,7 @@ class KnightCaptain(Enemy):      # telegraphed dash + lance projectiles while da
                     # one fast lance, plus two slight spreads
                     for spread in (-0.15, 0.0, 0.15):
                         a = dv.rotate_rad(spread)
-                        projectiles.append(Projectile(self.x, self.y, a.x * 260.0, a.y * 260.0, 6, 1, False))
+                        projectiles.append(Projectile(self.x, self.y, a.x * 260.0, a.y * 260.0, 6, 1, False, sprite_id=None))
 
             if collided:
                 self.state = "charge"
@@ -182,4 +182,4 @@ class OgreBoss(Enemy):
                 for i in range(12):
                     ang = i * (3.14159 * 2 / 12)
                     v = pg.math.Vector2(160.0, 0).rotate_rad(ang)
-                    projectiles.append(Projectile(self.x, self.y, v.x, v.y, 6, 1, False))
+                    projectiles.append(Projectile(self.x, self.y, v.x, v.y, 6, 1, False, sprite_id=None))

@@ -16,7 +16,7 @@ class Enemy(Entity):
     speed: float = 40.0
     touch_damage: int = 1
     sprite: AnimatedSprite | None = None
-    
+
     def __post_init__(self):
         try:
             frames = load_strip(['assets','sprites','enemies', f'{self.sprite_id}_walk.png'], 64, 64)
@@ -149,4 +149,4 @@ class Skeleton(Enemy):
         if self.shoot_cd <= 0 and dist > 1:
             self.shoot_cd = 1.2
             d = v.normalize(); speed = 360.0
-            projectiles.append(Projectile(self.x, self.y, d.x*speed, d.y*speed, 6, 1, False))
+            projectiles.append(Projectile(self.x, self.y, d.x*speed, d.y*speed, 6, 1, False, sprite_id=None))
