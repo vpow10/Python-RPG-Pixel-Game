@@ -6,6 +6,7 @@ from medieval_rogue import settings as S
 from medieval_rogue.entities.projectile import Projectile
 from medieval_rogue.entities.utilities import move_and_collide
 from medieval_rogue.camera import Camera
+from medieval_rogue.entities.player_classes import PlayerClass
 from assets.sprite_manager import AnimatedSprite, _load_image, slice_sheet, load_strip
 
 
@@ -20,17 +21,20 @@ class PlayerStats:
 @dataclass
 class Player:
     x: float; y: float
+    cls: PlayerClass
     stats: PlayerStats = field(default_factory=PlayerStats)
     hp: int = field(init=False)
     fire_cd: float = 0.0
     shoot_timer: float = 0.0
     invuln_timer: float = 0.0
     inventory: List[str] = field(default_factory=list)
-    sprite_id: str = "archer"
-    projectile_id: str = "arrow"
+    sprite_id: str = field(init=False)
+    projectile_id: str = field(init=False)
 
     def __post_init__(self):
         self.hp = self.stats.hp
+        self.sprite_id = self.cls.sprite_id
+        self.projectile_id = self.cls.projectile_id
         self.sfx_shot = None
         self.facing_left = False
 
