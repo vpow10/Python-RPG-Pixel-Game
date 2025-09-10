@@ -114,14 +114,50 @@ class Bat(Enemy):
 class Skeleton(Enemy):
     def __init__(self, x, y, **opts):
         super().__init__(x, y, hp=3, sprite_id="skeleton", speed=120.0)
+        FRAME_W, FRAME_H = 64, 64
+
+        def _safe_load_strip(path_parts, frame_w: int, frame_h: int) -> list[pg.Surface]:
+            try:
+                frames = load_strip(path_parts, frame_w, frame_h)
+                if not frames:
+                    raise RuntimeError("No frames returned")
+                return frames
+            except Exception:
+                surf = pg.Surface((frame_w, frame_h), pg.SRCALPHA)
+                surf.fill((200, 50, 50, 255))
+                pg.draw.line(surf, (255, 255, 255), (2, 2), (frame_w-3, frame_h-3), 2)
+                pg.draw.line(surf, (255, 255, 255), (frame_w-3, 2), (2, frame_h-3), 2)
+                return [surf]
+
+        walk_frames = _safe_load_strip(['assets','sprites','enemies','skeleton_walk.png'], FRAME_W, FRAME_H)
+        shoot_frames = _safe_load_strip(['assets','sprites','enemies','skeleton_shoot.png'], FRAME_W, FRAME_H)
+        walk_shoot_frames = _safe_load_strip(['assets','sprites','enemies','skeleton_walk_shoot.png'], FRAME_W, FRAME_H)
+
+        self.anims = {
+            "walk":       AnimatedSprite(walk_frames, fps=6, loop=True, anchor='bottom'),
+            "shoot":      AnimatedSprite(shoot_frames, fps=6, loop=True, anchor='bottom'),
+            "walk_shoot": AnimatedSprite(walk_shoot_frames, fps=6, loop=True, anchor='bottom')
+        }
+        self.sprite = self.anims["walk"]
+
         self.shoot_cd = random.uniform(0.5, 1.2)
+        self.shoot_timer = 0.0
+        self.facing_left = False
+
+    def _set_anim(self, name: str):
+        nxt = self.anims.get(name)
+        if nxt and self.sprite is not nxt:
+            nxt.paused = False; nxt.idx = 0; nxt.t = 0.0
+            self.sprite = nxt
 
     def draw(self, surf, camera: Camera=None):
         if hasattr(self, 'sprite') and self.sprite:
-            self.sprite.draw(surf, self.x, self.y, camera=camera)
+            self.sprite.draw(surf, self.x, self.y, camera=camera, flip_x=self.facing_left)
         else:
-            r = self.rect();
-            if camera is not None: sx, sy = camera.world_to_screen(r.x, r.y); r = pg.Rect(sx, sy, r.w, r.h)
+            r = self.rect()
+            if camera is not None:
+                sx, sy = camera.world_to_screen(r.x, r.y)
+                r = pg.Rect(sx, sy, r.w, r.h)
             pg.draw.rect(surf, (220,220,220), r)
 
     def update(self, dt, player_pos, walls, projectiles):
@@ -131,6 +167,7 @@ class Skeleton(Enemy):
         oy = -h
         dist = v.length()
         step = pg.Vector2(0,0)
+
         if dist > 1:
             n = v.normalize()
             if dist > 420:
@@ -140,7 +177,6 @@ class Skeleton(Enemy):
 
         nx, ny, collided = move_and_collide(self.x, self.y, w, h, step.x, step.y, walls, ox=ox, oy=oy, stop_on_collision=False)
         if collided:
-            # try axis fallback
             nx_h, ny_h, _ = move_and_collide(self.x, self.y, w, h, step.x, 0, walls, ox=ox, oy=oy, stop_on_collision=False)
             nx_v, ny_v, _ = move_and_collide(self.x, self.y, w, h, 0, step.y, walls, ox=ox, oy=oy, stop_on_collision=False)
             if (nx_h - self.x)**2 + (ny_h - self.y)**2 >= (nx_v - self.x)**2 + (ny_v - self.y)**2:
@@ -149,8 +185,33 @@ class Skeleton(Enemy):
                 nx, ny = nx_v, ny_v
         self.x, self.y = nx, ny
 
+        # Facing
+        self.facing_left = player_pos.x < self.x
+
+        # Shooting
         self.shoot_cd -= dt
+        shooting = False
         if self.shoot_cd <= 0 and dist > 1:
             self.shoot_cd = 1.2
             d = v.normalize(); speed = 360.0
             projectiles.append(Projectile(self.x, self.y, d.x*speed, d.y*speed, 6, 1, False, sprite_id=None))
+            self.shoot_timer = 0.2  # how long "shoot" anim lasts
+            shooting = True
+
+        if self.shoot_timer > 0:
+            self.shoot_timer -= dt
+            shooting = True
+
+        # Pick animation
+        is_moving = step.length_squared() > 0
+        if shooting:
+            if is_moving and "walk_shoot" in self.anims:
+                self._set_anim("walk_shoot")
+            else:
+                self._set_anim("shoot")
+        else:
+            self._set_anim("walk" if is_moving else "walk")  # fallback to walk, no idle
+
+        # Update sprite
+        if self.sprite:
+            self.sprite.update(dt)
