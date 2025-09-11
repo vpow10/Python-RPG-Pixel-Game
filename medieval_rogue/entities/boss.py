@@ -7,10 +7,10 @@ from medieval_rogue.entities.enemy import Enemy
 from medieval_rogue.entities.enemy_registry import register_boss
 
 
-@register_boss("warden")
-class Warden(Enemy):     # bouncing + 5-way volley
+@register_boss("the_skull")
+class TheSkull(Enemy):     # bouncing + 5-way volley
     def __init__(self, x, y, **opts):
-        super().__init__(x, y, hp=30, speed=360.0)
+        super().__init__(x, y, hp=40, speed=360.0)
         self.is_boss = True
         self.max_hp = self.hp
         self.vx = 180.0
@@ -88,7 +88,6 @@ class Warlock(Enemy):    # bullet rings
                 for spread in (-0.18, 0.0, 0.18):
                     v = dirv.rotate_rad(spread)
                     projectiles.append(Projectile(self.x, self.y, v.x*220.0, v.y*220.0, 6, 1, False, sprite_id=None))
-
 
 @register_boss("knight_captain")
 class KnightCaptain(Enemy):      # telegraphed dash + lance projectiles while dashing
