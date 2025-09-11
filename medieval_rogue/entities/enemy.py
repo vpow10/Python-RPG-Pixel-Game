@@ -210,8 +210,7 @@ class Skeleton(Enemy):
             else:
                 self._set_anim("shoot")
         else:
-            self._set_anim("walk" if is_moving else "walk")  # fallback to walk, no idle
+            self._set_anim("walk" if is_moving else "walk")
 
-        # Update sprite
         if self.sprite:
             self.sprite.update(dt)

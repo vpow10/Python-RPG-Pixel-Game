@@ -3,7 +3,7 @@ import pygame as pg
 from dataclasses import dataclass
 from medieval_rogue.entities.player import Player
 from medieval_rogue.camera import Camera
-from assets.sprite_manager import _load_image
+from assets.sprite_manager import load_strip, AnimatedSprite
 
 @dataclass
 class ItemPickup:
@@ -19,9 +19,13 @@ class ItemPickup:
     def __post_init__(self):
         if self.sprite is None:
             try:
-                self.sprite = _load_image(['assets','sprites','items', f'{self.item_id}_16.png'])
-            except Exception:
+                print("Loading sprite")
+                frames = load_strip(['assets','sprites','items', f'{self.item_id}.png'], 32, 32)
+                self.sprite = AnimatedSprite(frames, fps=2, loop=True, anchor='bottom')
+                print("Sprite loaded")
+            except Exception as e:
                 self.sprite = None
+                print(e)
 
     def rect(self) -> pg.Rect:
         return pg.Rect(int(self.x - self.w // 2), int(self.y - self.h // 2), self.w, self.h)
@@ -29,15 +33,15 @@ class ItemPickup:
     def update(self, dt: float, player: Player) -> None:
         if not self.alive:
             return
+        if self.sprite:
+            self.sprite.update(dt)
         if self.rect().colliderect(player.rect()):
             self.alive = False
 
     def draw(self, surf: pg.Surface, camera: Camera | None = None) -> None:
-        r = self.rect()
-        if camera is not None:
-            sx, sy = camera.world_to_screen(r.x, r.y); r = pg.Rect(sx, sy, r.w, r.h)
         if self.sprite:
-            img = self.sprite
-            surf.blit(img, (r.centerx - img.get_width()//2, r.centery - img.get_height()//2))
+            self.sprite.draw(surf, self.x, self.y, camera=camera)
         else:
+            r = self.rect();
+            if camera is not None: sx, sy = camera.world_to_screen(r.x, r.y); r = pg.Rect(sx, sy, r.w, r.h)
             pg.draw.rect(surf, (200, 180, 60), r)

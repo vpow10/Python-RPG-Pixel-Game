@@ -63,7 +63,7 @@ SCORE_DECAY_PER_SEC = 1
 FLOORS = 3
 ROOM_ENEMY_MIN = 3
 ROOM_ENEMY_MAX = 6
-RANDOM_SEED = None  # set to an int for deterministic runs
+RANDOM_SEED = None  # set to an int for deterministic runs, 4 -> item room up top 
 SAFE_RADIUS = 192
 BORDER = 16
 
