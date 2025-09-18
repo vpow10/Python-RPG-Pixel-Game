@@ -19,13 +19,10 @@ class ItemPickup:
     def __post_init__(self):
         if self.sprite is None:
             try:
-                print("Loading sprite")
                 frames = load_strip(['assets','sprites','items', f'{self.item_id}.png'], 32, 32)
                 self.sprite = AnimatedSprite(frames, fps=2, loop=True, anchor='bottom')
-                print("Sprite loaded")
             except Exception as e:
                 self.sprite = None
-                print(e)
 
     def rect(self) -> pg.Rect:
         return pg.Rect(int(self.x - self.w // 2), int(self.y - self.h // 2), self.w, self.h)

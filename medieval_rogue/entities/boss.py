@@ -225,15 +225,16 @@ class KnightCaptain(Enemy):      # telegraphed dash + lance projectiles while da
         if self.sprite:
             self.sprite.update(dt)
 
-@register_boss("ogre_boss")
-class OgreBoss(Enemy):
+@register_boss("ogre_warrior")
+class OgreWarrior(Enemy):
     def __init__(self, x, y, **opts):
-        super().__init__(x, y, hp=50, speed=150.0)
+        super().__init__(x, y, hp=50, speed=150.0, sprite_id="ogre_warrior")
         self.is_boss = True
         self.max_hp = self.hp
         self._state = "charge"
         self._cd = 0.8
         self.vx = 0.0; self.vy = 0.0
+        self.name = "Ogre Warrior"
 
     def rect(self) -> pg.Rect:
         return pg.Rect(int(self.x-16), int(self.y-16), 32, 32)

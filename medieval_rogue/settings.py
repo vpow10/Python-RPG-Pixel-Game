@@ -79,4 +79,4 @@ DEBUG_ROOMS = True
 
 # Debug / testing
 FORCE_BOSS_IN_START_ROOM = True
-FORCE_BOSS_ID = "the_skull"
+FORCE_BOSS_ID = "ogre_warrior"
