@@ -69,48 +69,71 @@ class TheSkull(Enemy):     # bouncing + 5-way volley
             ))
 
 @register_boss("warlock")
-class Warlock(Enemy):    # bullet rings
+class Warlock(Enemy):    # bullet rings + 3-shot sync
     def __init__(self, x, y, **opts):
-        super().__init__(x, y, hp=40, speed=0.0)
+        super().__init__(x, y, hp=40, speed=0.0, sprite_id="warlock")
         self.t = 0.0
         self.is_boss = True
         self.max_hp = self.hp
         self.spawn_x = float(x)
         self.spawn_y = float(y)
+        self.name = "Warlock"
+
+        FRAME_W, FRAME_H = 96, 96
+        frames = load_strip(['assets','sprites','bosses','warlock.png'], FRAME_W, FRAME_H)
+        self.sprite = AnimatedSprite(frames, fps=4, loop=True, anchor='center')
 
     def rect(self) -> pg.Rect:
         return pg.Rect(int(self.x-16), int(self.y-16), 32, 32)
 
     def draw(self, surf: pg.Surface, camera: Camera = None) -> None:
-        r = self.rect()
-        if camera is not None:
-            screen_pos = camera.world_to_screen(r.x, r.y)
-            r = pg.Rect(screen_pos[0], screen_pos[1], r.w, r.h)
-        pg.draw.rect(surf, (180,100,220), r)
+        if self.sprite:
+            self.sprite.draw(surf, self.x, self.y, camera=camera)
+        else:
+            r = self.rect()
+            if camera is not None:
+                sx, sy = camera.world_to_screen(r.x, r.y)
+                r = pg.Rect(sx, sy, r.w, r.h)
+            pg.draw.rect(surf, (180,100,220), r)
 
     def update(self, dt, player_pos, walls, projectiles):
-        self.t += dt
+        # --- return to spawn position ---
         dx = (self.spawn_x - self.x) * 0.6 * dt
         dy = (self.spawn_y - self.y) * 0.6 * dt
-        nx, ny, collided = move_and_collide(self.x, self.y, 32, 32, dx, dy, walls,
-                                           ox=-16, oy=-16, stop_on_collision=False)
+        nx, ny, _ = move_and_collide(self.x, self.y, 32, 32, dx, dy, walls,
+                                     ox=-16, oy=-16, stop_on_collision=False)
         self.x, self.y = nx, ny
 
+        # --- bullet ring timer ---
+        self.t += dt
         if self.t >= 0.8:
             self.t = 0.0
             base = random.random() * math.tau
-            # ring
             for i in range(10):
                 a = base + (i/10.0)*math.tau
-                projectiles.append(Projectile(self.x, self.y, math.cos(a)*150, math.sin(a)*150, 6, 1, False))
+                projectiles.append(Projectile(
+                    self.x, self.y,
+                    math.cos(a)*150, math.sin(a)*150,
+                    6, 1, False, sprite_id="fireball"
+                ))
 
-            # targeted bolts: 3 bolts aimed at player with small spread
-            vec = player_pos - self.center()
-            if vec.length_squared() > 0:
-                dirv = vec.normalize()
-                for spread in (-0.18, 0.0, 0.18):
-                    v = dirv.rotate_rad(spread)
-                    projectiles.append(Projectile(self.x, self.y, v.x*220.0, v.y*220.0, 6, 1, False, sprite_id=None))
+        # --- animation update ---
+        if self.sprite:
+            prev_frame = self.sprite.idx
+            self.sprite.update(dt)
+            new_frame = self.sprite.idx
+
+            if new_frame == 2 and prev_frame != 2:
+                vec = player_pos - self.center()
+                if vec.length_squared() > 0:
+                    dirv = vec.normalize()
+                    for spread in (-0.22, 0.0, 0.22):
+                        v = dirv.rotate_rad(spread)
+                        projectiles.append(Projectile(
+                            self.x, self.y,
+                            v.x*220.0, v.y*220.0,
+                            6, 1, False, sprite_id="fireball"
+                        ))
 
 @register_boss("knight_captain")
 class KnightCaptain(Enemy):      # telegraphed dash + lance projectiles while dashing
