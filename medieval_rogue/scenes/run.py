@@ -45,6 +45,10 @@ class RunScene(Scene):
         self.current_room.visited = True
         for _, r in self._neighbors_of(self.current_gp).items():
             if r: r.discovered = True
+        if getattr(S, "FORCE_BOSS_IN_START_ROOM", False):
+            self.current_room.kind = "boss"
+            self.boss_cleared = False
+            self.message = ""
         self.floor_i = 0; self.room_i = 0
         self.max_hp = self.player.stats.hp
         self.message = ""; self.room_cleared = False
@@ -176,9 +180,10 @@ class RunScene(Scene):
     def _spawn_boss_encounter(self) -> None:
         r = self.current_room.world_rect
         boss_ids = list(BOSSES.keys())
-        boss_id = random.choice(boss_ids)
+        forced = getattr(S, "FORCE_BOSS_ID", None)
+        boss_id = forced if (forced in boss_ids) else random.choice(boss_ids)
         self.boss = create_boss(boss_id, r.centerx, r.centery)
-        self.message = f"Boss: {boss_id}"
+        self.message = f"Boss: {self.boss.name}"
 
     def handle_event(self, e: pg.event.Event) -> None:
         if e.type == pg.KEYDOWN:
@@ -279,7 +284,7 @@ class RunScene(Scene):
                     self.boss = None
                     self.score += S.SCORE_PER_BOSS
                     self.room_cleared = True
-                    self.message = "Boss defeated! Press Space for next room"
+                    self.message = "Boss defeated! Press Space for next floor"
                     try:
                         name = random.choice(ITEMS).name
                         preferred = (self.current_room.world_rect.centerx, self.current_room.world_rect.centery)

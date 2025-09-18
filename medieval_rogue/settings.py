@@ -76,3 +76,7 @@ MIN_ROOMS = 6
 MAX_ROOMS = 12
 DEBUG_MINIMAP = False
 DEBUG_ROOMS = True
+
+# Debug / testing
+FORCE_BOSS_IN_START_ROOM = True
+FORCE_BOSS_ID = "the_skull"

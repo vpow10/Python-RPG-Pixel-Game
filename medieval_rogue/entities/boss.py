@@ -11,19 +11,17 @@ from assets.sprite_manager import AnimatedSprite, load_strip
 @register_boss("the_skull")
 class TheSkull(Enemy):     # bouncing + 5-way volley
     def __init__(self, x, y, **opts):
-        super().__init__(x, y, hp=40, speed=360.0)
+        super().__init__(x, y, hp=40, speed=360.0, sprite_id="the_skull")
         self.is_boss = True
         self.max_hp = self.hp
         self.vx = 180.0
         self.vy = 135.0
-        self.cd = 1.0
-        
+        self.name = "The Skull"
+
         FRAME_W, FRAME_H = 96, 96
-        frames = load_strip(['assets', 'sprites', 'bosses', 'the_skull.png'], FRAME_W, FRAME_H)
-        
-        self.sprite = AnimatedSprite(frames, fps=6, loop=True, anchor="center")
-        
-        self.shoot_pending = False
+        frames = load_strip(['assets','sprites','bosses','the_skull.png'], FRAME_W, FRAME_H)
+
+        self.sprite = AnimatedSprite(frames, fps=4, loop=True, anchor='center')  
 
     def rect(self) -> pg.Rect:
         return pg.Rect(int(self.x-16), int(self.y-16), 32, 32)
@@ -34,43 +32,39 @@ class TheSkull(Enemy):     # bouncing + 5-way volley
         else:
             r = self.rect()
             if camera is not None:
-                screen_pos = camera.world_to_screen(r.x, r.y)
-                r = pg.Rect(screen_pos[0], screen_pos[1], r.w, r.h)
+                sx, sy = camera.world_to_screen(r.x, r.y)
+                r = pg.Rect(sx, sy, r.w, r.h)
             pg.draw.rect(surf, (50,220,150), r)
 
     def update(self, dt, player_pos, walls, projectiles):
-        # Movement bounce
+        # --- Movement (bounce) ---
         dx = self.vx * dt
         dy = self.vy * dt
-        nx, ny, _ = move_and_collide(self.x, self.y, 20, 20, dx, dy, walls, ox=-10, oy=-10, stop_on_collision=False)
+        nx, ny, _ = move_and_collide(
+            self.x, self.y, 20, 20, dx, dy,
+            walls, ox=-10, oy=-10, stop_on_collision=False
+        )
         if nx != self.x + dx:
             self.vx *= -1
         if ny != self.y + dy:
             self.vy *= -1
         self.x, self.y = nx, ny
 
-        # Cooldown
-        self.cd -= dt
-        if self.cd <= 0:
-            self.cd = 1.0
-            self.shoot_pending = True
-
-        # Advance animation
+        # --- Animation update ---
         if self.sprite:
             prev_frame = self.sprite.idx
             self.sprite.update(dt)
             new_frame = self.sprite.idx
 
-            if self.shoot_pending and new_frame == 3 and prev_frame != 3:
+            if new_frame == 2 and prev_frame != 2:
                 self._fire_volley(projectiles)
-                self.shoot_pending = False
-    
+
     def _fire_volley(self, projectiles):
-        for ang in (0,72,144,216,288):
+        for ang in (0, 72, 144, 216, 288):
             rad = math.radians(ang)
             projectiles.append(Projectile(
                 self.x, self.y,
-                math.cos(rad)*130, math.sin(rad)*130,
+                math.cos(rad) * 130, math.sin(rad) * 130,
                 6, 1, False, sprite_id=None
             ))
 
