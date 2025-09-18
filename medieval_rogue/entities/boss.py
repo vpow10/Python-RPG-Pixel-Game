@@ -65,7 +65,7 @@ class TheSkull(Enemy):     # bouncing + 5-way volley
             projectiles.append(Projectile(
                 self.x, self.y,
                 math.cos(rad) * 130, math.sin(rad) * 130,
-                6, 1, False, sprite_id=None
+                6, 1, False, sprite_id=None, color=(255,103,255)
             ))
 
 @register_boss("warlock")
@@ -138,59 +138,92 @@ class Warlock(Enemy):    # bullet rings + 3-shot sync
 @register_boss("knight_captain")
 class KnightCaptain(Enemy):      # telegraphed dash + lance projectiles while dashing
     def __init__(self, x, y, **opts):
-        super().__init__(x, y, hp=50, speed=0.0)
+        super().__init__(x, y, hp=50, speed=0.0, sprite_id="knight_captain")
         self.is_boss = True
         self.max_hp = self.hp
         self.state = "charge"
         self.cd = 0.8
         self.vx = self.vy = 0.0
         self.dash_emit_cd = 0.12
+        self.dash_timer = 0.0
+        self.name = "Knight Captain"
+
+        FRAME_W, FRAME_H = 96, 96
+        idle_frames = load_strip(['assets','sprites','bosses','knight_captain_idle.png'], FRAME_W, FRAME_H)
+        dash_frames = load_strip(['assets','sprites','bosses','knight_captain_dash.png'], FRAME_W, FRAME_H)
+
+        self.anims = {
+            "idle": AnimatedSprite(idle_frames, fps=2, loop=True, anchor='center'),
+            "dash": AnimatedSprite(dash_frames, fps=8, loop=True, anchor='center')
+        }
+        self.sprite = self.anims["idle"]
+
+    def _set_anim(self, name: str):
+        nxt = self.anims.get(name)
+        if nxt and self.sprite is not nxt:
+            nxt.paused = False; nxt.idx = 0; nxt.t = 0.0
+            self.sprite = nxt
 
     def rect(self) -> pg.Rect:
         return pg.Rect(int(self.x-16), int(self.y-16), 32, 32)
 
     def draw(self, surf: pg.Surface, camera: Camera = None) -> None:
-        r = self.rect()
-        if camera is not None:
-            screen_pos = camera.world_to_screen(r.x, r.y)
-            r = pg.Rect(screen_pos[0], screen_pos[1], r.w, r.h)
-        pg.draw.rect(surf, (200,180,80) if self.state=="charge" else (220,140,60), r)
+        if self.sprite:
+            self.sprite.draw(surf, self.x, self.y, camera=camera)
+        else:
+            r = self.rect()
+            if camera is not None:
+                sx, sy = camera.world_to_screen(r.x, r.y)
+                r = pg.Rect(sx, sy, r.w, r.h)
+            pg.draw.rect(surf, (200,180,80) if self.state=="charge" else (220,140,60), r)
 
     def update(self, dt, player_pos, walls, projectiles):
         if self.state == "charge":
+            self._set_anim("idle")
             self.cd -= dt
             if self.cd < 0:
                 d = (player_pos - self.center())
                 if d.length_squared() > 0:
                     d = d.normalize()
-                    self.vx, self.vy = d.x*360, d.y*360
-                    self.cd = 0.6
+                    self.vx, self.vy = d.x*480, d.y*480
+                    self.cd = 0.8
+                    self.dash_timer = 0.65
                     self.state = "dash"
-                    self.dash_emit_cd = 0.08  # start a short burst as the dash begins
-        else:
+                    self.dash_emit_cd = 0.08
+        else:  # dash
+            self._set_anim("dash")
             dx = self.vx * dt
             dy = self.vy * dt
-            nx, ny, collided = move_and_collide(self.x, self.y, 32, 32, dx, dy, walls, ox=-16, oy=-16, stop_on_collision=False)
+            nx, ny, collided = move_and_collide(self.x, self.y, 32, 32,
+                                               dx, dy, walls, ox=-16, oy=-16, stop_on_collision=False)
             self.x, self.y = nx, ny
 
-            # while dashing, periodically emit short lances forward
+            # Emit lances periodically
             self.dash_emit_cd -= dt
             if self.dash_emit_cd <= 0:
                 self.dash_emit_cd = 0.12
                 dv = pg.Vector2(self.vx, self.vy)
                 if dv.length_squared() > 1:
                     dv = dv.normalize()
-                    # one fast lance, plus two slight spreads
-                    for spread in (-0.15, 0.0, 0.15):
+                    for spread in (-0.25, 0.0, 0.25):
                         a = dv.rotate_rad(spread)
-                        projectiles.append(Projectile(self.x, self.y, a.x * 260.0, a.y * 260.0, 6, 1, False, sprite_id=None))
+                        projectiles.append(Projectile(
+                            self.x, self.y,
+                            a.x * 360.0, a.y * 360.0,
+                            6, 1, False,
+                            sprite_id=None,
+                            color=(87,191,56)
+                        ))
 
-            if collided:
+            # End dash after timer or collision
+            self.dash_timer -= dt
+            if self.dash_timer <= 0 or collided:
                 self.state = "charge"
                 self.cd = 0.8
-            if self.cd <= 0:
-                self.state = "charge"
-                self.cd = 0.8
+
+        # Update animation
+        if self.sprite:
+            self.sprite.update(dt)
 
 @register_boss("ogre_boss")
 class OgreBoss(Enemy):

@@ -10,7 +10,8 @@ from assets.sprite_manager import _load_image
 class Projectile:
     x: float; y: float; vx: float; vy: float
     radius: int; damage: int; friendly: bool
-    sprite_id: str
+    sprite_id: str | None = None
+    color: tuple[int,int,int] | None = None
     alive: bool = True
     sprite: pg.Surface | None = None
 
@@ -46,5 +47,8 @@ class Projectile:
             rect = img.get_rect(center=pos)
             surf.blit(img, rect)
         else:
-            color = (240,220,120) if self.friendly else (220,90,90)
+            if self.color:
+                color = self.color
+            else:
+                color = (240,220,120) if self.friendly else (220,90,90)
             pg.draw.circle(surf, color, pos, self.radius)
