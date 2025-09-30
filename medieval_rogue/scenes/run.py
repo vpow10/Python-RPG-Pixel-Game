@@ -14,6 +14,7 @@ from medieval_rogue.ui.minimap import draw_minimap
 from assets.sound_manager import load_sounds
 from medieval_rogue.camera import Camera
 from medieval_rogue.entities.pickups import ItemPickup
+from medieval_rogue.ui.edge_fade import draw_edge_fade
 
 class RunScene(Scene):
     def __init__(self, app):
@@ -339,6 +340,7 @@ class RunScene(Scene):
     def draw(self, surf: pg.Surface) -> None:
         w, h = S.BASE_W, S.BASE_H
         self.current_room.draw(surf, camera=self.camera)
+        draw_edge_fade(surf, self.camera, self.current_room.world_rect)
         for p in self.projectiles: p.draw(surf, camera=self.camera)
         for p in self.e_projectiles: p.draw(surf, camera=self.camera)
         for e in self.enemies: e.draw(surf, camera=self.camera)

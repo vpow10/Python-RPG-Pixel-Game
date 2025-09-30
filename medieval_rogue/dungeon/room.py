@@ -7,6 +7,11 @@ from medieval_rogue.camera import Camera
 from assets.sprite_manager import _load_image
 
 
+INSET = S.ROOM_INSET
+
+def inset_rect(r: pg.Rect, d:int) -> pg.Rect:
+    return pg.Rect(r.x + d, r.y + d, r.w - 2*d, r.h - 2*d)
+
 RoomType = Literal["combat", "item", "boss", "start"]
 Direction = Literal["N", "E", "S", "W"]
 
@@ -135,7 +140,8 @@ class Room:
 
     # --- Walls ---
     def wall_rects(self) -> List[pg.Rect]:
-        r = self.world_rect; b = S.BORDER
+        r = inset_rect(self.world_rect, INSET)
+        b = S.WALL_THICKNESS
         walls: List[pg.Rect] = []
 
         # Helper to carve a gap for a door along a 1D span
@@ -173,7 +179,7 @@ class Room:
         Door is centered on the overlapping span between this room and its neighbour.
         """
         self.doors.clear()
-        my = self.world_rect
+        my = inset_rect(self.world_rect, INSET)
         for side, nbr in neighbours.items():
             if not nbr: continue
             other = nbr.world_rect
