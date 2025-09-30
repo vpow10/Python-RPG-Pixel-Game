@@ -4,8 +4,7 @@ from dataclasses import dataclass, field
 from typing import Literal, List, Tuple, Dict
 from medieval_rogue import settings as S
 from medieval_rogue.camera import Camera
-from assets.sprite_manager import _load_image
-
+from assets.sprite_manager import _load_image, load_strip
 
 INSET = S.ROOM_INSET
 
@@ -149,29 +148,94 @@ PATTERNS: Dict[Tuple[RoomType, int, int], List[List[RectSpec]]] = {
 }
 
 # Helpers
-def _blit_tiled(surf: pg.Surface, img: pg.Surface, rect: pg.Rect):
-    tw, th = img.get_width(), img.get_height()
-    for yy in range(rect.top, rect.bottom, th):
-        for xx in range(rect.left, rect.right, tw):
-            surf.blit(img, (xx, yy))
-            
-_FLOOR   = None
-_WALL    = None
-_OBS     = None
+def _load_optional(path_parts):
+    try:
+        return _load_image(path_parts)
+    except Exception:
+        return None
+
+_FLOOR = None
+_WALLS  = None
+_OBS   = None
+_DOOR  = {}   # "h_open", "h_closed", "v_open", "v_closed"
 
 def _get_tiles():
-    global _FLOOR, _WALL, _OBS
+    global _FLOOR, _WALLS, _OBS, _DOOR
+    
+    TILE = S.TILE_SIZE
+    
     if _FLOOR is None:
         try:
-            _FLOOR  = [
-                _load_image(['assets', 'sprites', 'tiles', 'floor', f'floor_{i}.png'])
-                for i in range(1,8)
-            ]
-            # _WALL   = _load_image(['assets','sprites','tiles','wall_32.png'])
-            # _OBS    = _load_image(['assets','sprites','tiles','obstacle_32.png'])
+            _FLOOR = load_strip(['assets','sprites','tiles','floor','floor_sheet.png'], TILE, TILE)
         except Exception:
-            _FLOOR = []; _WALL = _OBS = None
-    return _FLOOR, _WALL, _OBS
+            _FLOOR = []
+
+        try:
+            _WALLS = load_strip(['assets','sprites','tiles','walls.png'], TILE, TILE)
+        except Exception:
+            _WALLS = []
+            
+        try:
+            _OBS = load_strip(['assets','sprites','tiles','obstacle_sheet.png'], TILE, TILE)
+        except Exception:
+            _OBS = []
+
+        _DOOR = {
+            "h_open":   _load_optional(['assets','sprites','tiles','door_h_open.png']),
+            "h_closed": _load_optional(['assets','sprites','tiles','door_h_closed.png']),
+            "v_open":   _load_optional(['assets','sprites','tiles','door_v_open.png']),
+            "v_closed": _load_optional(['assets','sprites','tiles','door_v_closed.png']),
+        }
+    return _FLOOR, _WALLS, _OBS, _DOOR
+
+def _blit_tiled(surf: pg.Surface, img: pg.Surface, rect: pg.Rect):
+    """Tile an image inside a *screen-space* rect."""
+    tw, th = img.get_width(), img.get_height()
+    start_x = rect.left - (rect.left % tw)
+    start_y = rect.top  - (rect.top  % th)
+    for yy in range(start_y, rect.bottom, th):
+        for xx in range(start_x, rect.right, tw):
+            surf.blit(img, (xx, yy))
+
+def _variant_index_at(images: list[pg.Surface], wx: int, wy: int) -> int:
+    """Choose a variant index from images based on world tile coordinate."""
+    if not images:
+        return 0
+    tw = images[0].get_width()
+    th = images[0].get_height()
+    tx = wx // max(1, tw)
+    ty = wy // max(1, th)
+    seed = (S.RANDOM_SEED if S.RANDOM_SEED is not None else 1337)
+    h = (tx * 73856093) ^ (ty * 19349663) ^ int(seed)
+    if h < 0: h = -h
+    return h % len(images)
+
+def _tile_rect_world_variants(
+    surf: pg.Surface,
+    images: list[pg.Surface],
+    rect_world: pg.Rect,
+    camera: Camera | None
+):
+    """Tile a rect in *world coords* using per-tile variant selection that is stable by world position."""
+    if not images:
+        return
+    tw, th = images[0].get_width(), images[0].get_height()
+
+    start_x = rect_world.left - (rect_world.left % tw)
+    start_y = rect_world.top  - (rect_world.top  % th)
+
+    y = start_y
+    while y < rect_world.bottom:
+        x = start_x
+        while x < rect_world.right:
+            idx = _variant_index_at(images, x, y)
+            img = images[idx]
+            sx, sy = (x, y) if camera is None else camera.world_to_screen(x, y)
+
+            if x + tw > rect_world.left and x < rect_world.right and y + th > rect_world.top and y < rect_world.bottom:
+                surf.blit(img, (sx, sy))
+            x += tw
+        y += th
 
 @dataclass
 class Door:
@@ -195,7 +259,7 @@ class Room:
     
     def __post_init__(self):
         # build a random grid of floor tile indices right away
-        FLOOR, _, _ = _get_tiles()
+        FLOOR, _, _, _ = _get_tiles()
         if FLOOR:
             tile_w = FLOOR[0].get_width()
             tile_h = FLOOR[0].get_height()
@@ -309,8 +373,8 @@ class Room:
             if camera is None: return r
             x, y = camera.world_to_screen(r.x, r.y)
             return pg.Rect(int(x), int(y), int(r.w), int(r.h))
-        
-        FLOOR, WALL, OBS = _get_tiles()
+                
+        FLOOR, WALL, OBS, DOOR = _get_tiles()
         
         # draw floor using grid
         if FLOOR and self.floor_map:
@@ -341,16 +405,34 @@ class Room:
             interior = inset_rect(self.world_rect, INSET + S.WALL_THICKNESS)
             pg.draw.rect(surf, S.FLOOR_COLOR, _apply(interior))
 
-        # walls
+       # walls
         walls = self.wall_rects()
-        for w in walls[:4]:
-            if WALL: _blit_tiled(surf, WALL, _apply(w))
-            else:    pg.draw.rect(surf, S.BORDER_COLOR, _apply(w))
-        for w in walls[4:]:
-            if OBS: _blit_tiled(surf, OBS, _apply(w))
-            else:   pg.draw.rect(surf, S.OBSTACLES_COLOR, _apply(w))
+
+        # Outer ring (first 4 rects)
+        for wrect in walls[:4]:
+            if WALL:
+                _tile_rect_world_variants(surf, WALL, wrect, camera)
+            else:
+                pg.draw.rect(surf, S.BORDER_COLOR, _apply(wrect))
+
+        # Interior obstacles/patterns (rest)
+        for wrect in walls[4:]:
+            # if you want obstacles to use their own sheet; fall back to WALL if OBS empty
+            imgs = OBS if OBS else WALL
+            if imgs:
+                _tile_rect_world_variants(surf, imgs, wrect, camera)
+            else:
+                pg.draw.rect(surf, S.OBSTACLES_COLOR, _apply(wrect))
 
         # doors
         for d in self.doors.values():
-            color = S.DOOR_OPEN_COLOR if d.open else S.DOOR_CLOSED_COLOR
-            pg.draw.rect(surf, color, _apply(d.rect))
+            sr = _apply(d.rect)
+            horizontal = (d.side in ("N","S"))
+            key = ("h_" if horizontal else "v_") + ("open" if d.open else "closed")
+            img = DOOR.get(key)
+            if img:
+                scaled = pg.transform.scale(img, (sr.w, sr.h))
+                surf.blit(scaled, sr.topleft)
+            else:
+                color = S.DOOR_OPEN_COLOR if d.open else S.DOOR_CLOSED_COLOR
+                pg.draw.rect(surf, color, sr)
