@@ -89,5 +89,5 @@ DEBUG_MINIMAP = False
 DEBUG_ROOMS = True
 
 # Debug / testing
-FORCE_BOSS_IN_START_ROOM = True
+FORCE_BOSS_IN_START_ROOM = False
 FORCE_BOSS_ID = None

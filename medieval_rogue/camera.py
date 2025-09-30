@@ -17,10 +17,15 @@ class Camera:
         self.y += (target_cam_y - self.y) * lerp
 
     def clamp_to_room(self, room_rect: pg.Rect) -> None:
-        min_x = room_rect.left
-        min_y = room_rect.top
-        max_x = max(min_x, room_rect.right - self.w)
-        max_y = max(min_y, room_rect.bottom - self.h)
+        gutter = int(S.VIEW_GUTTER)
+        clamp_rect = room_rect.inflate(-2*gutter, -2*gutter)
+        clamp_rect.w = max(0, clamp_rect.w)
+        clamp_rect.h = max(0, clamp_rect.h)
+        
+        min_x = clamp_rect.left
+        min_y = clamp_rect.top
+        max_x = max(min_x, clamp_rect.right - self.w)
+        max_y = max(min_y, clamp_rect.bottom - self.h)
 
         if self.x < min_x:
             self.x = float(min_x)
