@@ -26,45 +26,47 @@ def draw_edge_fade(screen: pg.Surface, camera, room_rect_world: pg.Rect) -> None
     fade = int(S.EDGE_FADE)
     if fade <= 0:
         return
-
     _ensure_strips()
 
-    vw = pg.Rect(int(camera.x), int(camera.y), camera.w, camera.h)
-    left_gap  = vw.left   - room_rect_world.left
-    top_gap   = vw.top    - room_rect_world.top
-    right_gap = room_rect_world.right  - vw.right
-    bot_gap   = room_rect_world.bottom - vw.bottom
+    sw, sh = screen.get_width(), screen.get_height()
+    screen_rect = pg.Rect(0, 0, sw, sh)
 
-    def width_from_gap(gap: int) -> int:
-        if gap >= fade:
-            return 0
-        return max(0, min(fade, fade - max(0, gap)))
+    tl = camera.world_to_screen(room_rect_world.left,  room_rect_world.top)
+    br = camera.world_to_screen(room_rect_world.right, room_rect_world.bottom)
+    room_scr = pg.Rect(min(tl[0], br[0]), min(tl[1], br[1]),
+                       abs(br[0] - tl[0]), abs(br[1] - tl[1]))
 
-    lw, tw, rw, bw = (width_from_gap(g) for g in (left_gap, top_gap, right_gap, bot_gap))
+    room_scr = room_scr.clip(screen_rect)
 
-    # LEFT
-    if lw > 0:
-        s = pg.transform.scale(_VSTRIP, (lw, screen.get_height()))
-        screen.blit(s, (0, 0))
-    # RIGHT
-    if rw > 0:
-        s = pg.transform.scale(_VSTRIP, (rw, screen.get_height()))
-        s = pg.transform.flip(s, True, False)
-        screen.blit(s, (screen.get_width() - rw, 0))
-    # TOP
-    if tw > 0:
-        s = pg.transform.scale(_HSTRIP, (screen.get_width(), tw))
-        screen.blit(s, (0, 0))
-    # BOTTOM
-    if bw > 0:
-        s = pg.transform.scale(_HSTRIP, (screen.get_width(), bw))
-        s = pg.transform.flip(s, False, True)
-        screen.blit(s, (0, screen.get_height() - bw))
+    # LEFT band: [0 .. room_scr.left)
+    if room_scr.left > 0:
+        w = min(fade, room_scr.left)
+        if w > 0:
+            s = pg.transform.scale(_VSTRIP, (w, sh))
+            screen.blit(s, (room_scr.left - w, 0))
+
+    # RIGHT band: (room_scr.right .. sw]
+    if room_scr.right < sw:
+        w = min(fade, sw - room_scr.right)
+        if w > 0:
+            s = pg.transform.scale(_VSTRIP, (w, sh))
+            s = pg.transform.flip(s, True, False)
+            screen.blit(s, (room_scr.right, 0))
+
+    # TOP band: [0 .. room_scr.top)
+    if room_scr.top > 0:
+        h = min(fade, room_scr.top)
+        if h > 0:
+            s = pg.transform.scale(_HSTRIP, (sw, h))
+            screen.blit(s, (0, room_scr.top - h))
+
+    # BOTTOM band: (room_scr.bottom .. sh]
+    if room_scr.bottom < sh:
+        h = min(fade, sh - room_scr.bottom)
+        if h > 0:
+            s = pg.transform.scale(_HSTRIP, (sw, h))
+            s = pg.transform.flip(s, False, True)
+            screen.blit(s, (0, room_scr.bottom))
 
     if EDGE_FADE_DEBUG:
-        # Draw room rect projected to screen for sanity
-        tl = camera.world_to_screen(room_rect_world.left, room_rect_world.top)
-        br = camera.world_to_screen(room_rect_world.right, room_rect_world.bottom)
-        rx = min(tl[0], br[0]); ry = min(tl[1], br[1])
-        rw2 = abs(br[0] - tl[0]); rh2 = abs(br[1] - tl[1])
-        pg.draw.rect(screen, (0, 255, 255), pg.Rect(rx, ry, rw2, rh2), 1)
+        pg.draw.rect(screen, (0, 255, 255), room_scr, 1)

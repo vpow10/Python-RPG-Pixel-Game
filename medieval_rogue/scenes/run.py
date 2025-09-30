@@ -5,7 +5,7 @@ from medieval_rogue.scene_manager import Scene
 from medieval_rogue.entities.player import Player, PlayerStats
 from medieval_rogue.entities.enemy_registry import BOSSES
 from medieval_rogue.entities.projectile import Projectile
-from medieval_rogue.entities.enemy_registry import create_boss, spawn_from_pattern, SPAWN_PATTERNS
+from medieval_rogue.entities.enemy_registry import create_boss, spawn_from_pattern, SPAWN_PATTERNS, pick_spawn_pattern
 from medieval_rogue.dungeon.generation import generate_floor
 from medieval_rogue.dungeon.room import Room, Direction
 from medieval_rogue.items.basic_items import get_item_by_name, ITEMS
@@ -81,6 +81,10 @@ class RunScene(Scene):
         self.e_projectiles.clear()
         self.boss = None
         self.item_available = None
+        
+        self._place_player_on_entry(from_dir)
+        self.camera.center_on(self.player.x, self.player.y)
+        self.camera.clamp_to_room(self.current_room.world_rect)
 
         if self.current_room.kind == "combat":
             if not self.current_room.cleared:
@@ -95,10 +99,6 @@ class RunScene(Scene):
             if not self.boss_cleared:
                 self._spawn_boss_encounter()
                 self.boss_cleared = True
-
-        self._place_player_on_entry(from_dir)
-        self.camera.center_on(self.player.x, self.player.y)
-        self.camera.clamp_to_room(self.current_room.world_rect)
 
     def _place_player_on_entry(self, from_dir: Direction | None) -> None:
         r = self.current_room.world_rect
@@ -173,9 +173,13 @@ class RunScene(Scene):
 
     def _spawn_combat_wave(self) -> None:
         rng = random.Random(S.RANDOM_SEED)
-        pattern_name = rng.choice(list(SPAWN_PATTERNS.keys()))
         r = self.current_room.world_rect
-        spawned = spawn_from_pattern(pattern_name, r)
+        name = pick_spawn_pattern(self.current_room.w_cells, self.current_room.h_cells, rng)
+        spawned = spawn_from_pattern(
+            name, r,
+            avoid_pos=(self.player.x, self.player.y),
+            avoid_radius=getattr(S, "SAFE_RADIUS", 160)
+        )
         self.enemies.extend(spawned)
         self.message = f"Enemies: {len(spawned)}"
 
@@ -216,6 +220,11 @@ class RunScene(Scene):
         walls = room.wall_rects()
 
         keys = pg.key.get_pressed(); mouse_buttons = pg.mouse.get_pressed(); mouse_pos = pg.mouse.get_pos()
+        
+        # Camera
+        self.camera.follow(self.player.x, self.player.y)
+        self.camera.clamp_to_room(self.current_room.world_rect)
+        
         # Convert to world-space for aiming
         world_mouse = self.camera.screen_to_world(mouse_pos[0], mouse_pos[1])
 
@@ -336,10 +345,6 @@ class RunScene(Scene):
                     if nxt in self.rooms:
                         self._enter_room(nxt, from_dir={"N":"S","S":"N","W":"E","E":"W"}[side])
                         break
-
-        # Camera
-        self.camera.follow(self.player.x, self.player.y)
-        self.camera.clamp_to_room(self.current_room.world_rect)
 
         # Player death
         if self.player.hp <= 0:

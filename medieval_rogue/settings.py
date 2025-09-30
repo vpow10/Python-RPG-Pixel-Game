@@ -14,7 +14,7 @@ SCALE = 1                   # window = BASE * SCALE
 FPS = 60
 
 # Visual framing / margins
-VIEW_GUTTER = 96
+VIEW_GUTTER = 80
 ROOM_INSET = 72
 EDGE_FADE = 96
 

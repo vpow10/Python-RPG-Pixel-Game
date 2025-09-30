@@ -16,6 +16,21 @@ class Enemy(Entity):
     speed: float = 40.0
     touch_damage: int = 1
     sprite: AnimatedSprite | None = None
+    
+    def muzzle_pos(self, dirv: pg.Vector2, height: float = 0.5, forward: float = 12.0) -> pg.Vector2:
+        """
+        Returns a good-looking projectile origin:
+        - 'height' is 0..1 from feet(0) to head(1) for bottom-anchored hitboxes.
+        - 'forward' pushes outward along dirv so the shot doesn't clip the body.
+        """
+        r = self.rect()
+        base = pg.Vector2(r.centerx, r.bottom - r.h * height)
+
+        if dirv.length_squared() > 0.0:
+            n = dirv.normalize()
+            base.x += n.x * forward
+            base.y += n.y * forward
+        return base
 
     def __post_init__(self):
         try:
@@ -151,6 +166,20 @@ class Skeleton(Enemy):
         self.shoot_cd = random.uniform(0.5, 1.2)
         self.shoot_timer = 0.0
         self.facing_left = False
+        
+        self.shoot_anim = self.anims["shoot"]
+        self.walk_shoot_anim = self.anims.get("walk_shoot", self.shoot_anim)
+
+        def _anim_duration(anim: AnimatedSprite, fallback: float = 0.35) -> float:
+            try:
+                n = max(1, len(anim.frames))
+                fps = max(1e-3, getattr(anim, "fps", 6.0))
+                return n / fps
+            except Exception:
+                return fallback
+
+        self.shoot_dur = _anim_duration(self.shoot_anim, 0.35)
+        self.walk_shoot_dur = _anim_duration(self.walk_shoot_anim, 0.35)
 
     def _set_anim(self, name: str):
         nxt = self.anims.get(name)
@@ -201,22 +230,32 @@ class Skeleton(Enemy):
         shooting = False
         if self.shoot_cd <= 0 and dist > 1:
             self.shoot_cd = 1.2
-            d = v.normalize(); speed = 360.0
-            projectiles.append(Projectile(self.x, self.y, d.x*speed, d.y*speed, 6, 1, False, sprite_id=None))
-            self.shoot_timer = 0.2  # how long "shoot" anim lasts
+            d = v.normalize()
+            speed = 360.0
+
+            origin = self.muzzle_pos(d, height=0.55, forward=14.0)
+            projectiles.append(Projectile(origin.x, origin.y, d.x*speed, d.y*speed, 6, 1, False, sprite_id=None))
+
+            is_moving = step.length_squared() > 0
+            use = self.walk_shoot_anim if is_moving and "walk_shoot" in self.anims else self.shoot_anim
+            self._set_anim("walk_shoot" if is_moving and "walk_shoot" in self.anims else "shoot")
+            use.loop = False
+            use.idx = 0
+            use.t = 0.0
+            self.shoot_timer = self.walk_shoot_dur if is_moving and "walk_shoot" in self.anims else self.shoot_dur
             shooting = True
 
         if self.shoot_timer > 0:
             self.shoot_timer -= dt
             shooting = True
+        else:
+            self.anims["walk"].loop = True
+            if "walk_shoot" in self.anims:
+                self.anims["walk_shoot"].loop = True
 
-        # Pick animation
         is_moving = step.length_squared() > 0
         if shooting:
-            if is_moving and "walk_shoot" in self.anims:
-                self._set_anim("walk_shoot")
-            else:
-                self._set_anim("shoot")
+            pass
         else:
             self._set_anim("walk" if is_moving else "walk")
 
