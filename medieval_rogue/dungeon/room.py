@@ -218,16 +218,30 @@ class Room:
         if FLOOR and self.floor_map:
             tile_w = FLOOR[0].get_width()
             tile_h = FLOOR[0].get_height()
+
             room_rect = self.world_rect
-            for row_i, row in enumerate(self.floor_map):
-                for col_i, idx in enumerate(row):
+            interior = inset_rect(room_rect, INSET + S.WALL_THICKNESS)
+
+            cols = interior.width // tile_w + 2
+            rows = interior.height // tile_h + 2
+
+            y = interior.top
+            row_i = 0
+            while y < interior.bottom:
+                x = interior.left
+                col_i = 0
+                while x < interior.right:
+                    idx = self.floor_map[row_i % len(self.floor_map)][col_i % len(self.floor_map[0])] if self.floor_map else 0
                     tile = FLOOR[idx]
-                    x = room_rect.left + col_i * tile_w
-                    y = room_rect.top + row_i * tile_h
                     rx, ry = (x, y) if camera is None else camera.world_to_screen(x, y)
                     surf.blit(tile, (rx, ry))
+                    x += tile_w
+                    col_i += 1
+                y += tile_h
+                row_i += 1
         else:
-            pg.draw.rect(surf, S.FLOOR_COLOR, _apply(self.world_rect))
+            interior = inset_rect(self.world_rect, INSET + S.WALL_THICKNESS)
+            pg.draw.rect(surf, S.FLOOR_COLOR, _apply(interior))
 
         # walls
         walls = self.wall_rects()

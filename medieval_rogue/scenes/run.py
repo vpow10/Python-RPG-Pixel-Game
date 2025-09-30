@@ -102,11 +102,20 @@ class RunScene(Scene):
 
     def _place_player_on_entry(self, from_dir: Direction | None) -> None:
         r = self.current_room.world_rect
-        if from_dir == "N": self.player.x, self.player.y = r.centerx, r.top + 80
-        elif from_dir == "S": self.player.x, self.player.y = r.centerx, r.bottom - 80
-        elif from_dir == "W": self.player.x, self.player.y = r.left + 80, r.centery
-        elif from_dir == "E": self.player.x, self.player.y = r.right - 80, r.centery
-        else: self.player.x, self.player.y = r.centerx, r.centery
+        M = 16  # small safety margin so we never clip walls
+        safe = pg.Rect(
+            r.left   + S.ROOM_INSET + S.WALL_THICKNESS + M,
+            r.top    + S.ROOM_INSET + S.WALL_THICKNESS + M,
+            r.width  - 2*(S.ROOM_INSET + S.WALL_THICKNESS + M),
+            r.height - 2*(S.ROOM_INSET + S.WALL_THICKNESS + M),
+        )
+
+        if from_dir == "N":      self.player.x, self.player.y = safe.centerx, safe.top + 40
+        elif from_dir == "S":    self.player.x, self.player.y = safe.centerx, safe.bottom - 40
+        elif from_dir == "W":    self.player.x, self.player.y = safe.left + 40, safe.centery
+        elif from_dir == "E":    self.player.x, self.player.y = safe.right - 40, safe.centery
+        else:                    self.player.x, self.player.y = safe.centerx, safe.centery
+
         self.player.set_position(self.player.x, self.player.y)
 
     def _find_free_spot(self, preferred: tuple[float, float], walls: list[pg.Rect], w: int = 16, h: int = 16,
@@ -358,4 +367,3 @@ class RunScene(Scene):
         draw_hud(surf, self.app.font, self.player.hp, self.max_hp, int(self.score), self.floor_i)
         draw_minimap(surf, self.rooms, self.current_gp)
         self.camera.follow(self.player.x, self.player.y)
-        self.camera.clamp_to_room(self.current_room.world_rect)
