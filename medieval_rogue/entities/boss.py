@@ -233,32 +233,75 @@ class OgreWarrior(Enemy):
         self.max_hp = self.hp
         self._state = "charge"
         self._cd = 0.8
-        self.vx = 0.0; self.vy = 0.0
+        self.vx = 0.0
+        self.vy = 0.0
+        self.dash_timer = 0.0
         self.name = "Ogre Warrior"
+
+        FRAME_W, FRAME_H = 96, 96
+        walk_frames = load_strip(['assets','sprites','bosses','ogre_warrior_walk.png'], FRAME_W, FRAME_H)
+        dash_frames = load_strip(['assets','sprites','bosses','ogre_warrior_dash.png'], FRAME_W, FRAME_H)
+
+        self.anims = {
+            "walk": AnimatedSprite(walk_frames, fps=4, loop=True, anchor='center'),
+            "dash": AnimatedSprite(dash_frames, fps=8, loop=True, anchor='center')
+        }
+        self.sprite = self.anims["walk"]
+
+    def _set_anim(self, name: str):
+        nxt = self.anims.get(name)
+        if nxt and self.sprite is not nxt:
+            nxt.paused = False; nxt.idx = 0; nxt.t = 0.0
+            self.sprite = nxt
 
     def rect(self) -> pg.Rect:
         return pg.Rect(int(self.x-16), int(self.y-16), 32, 32)
 
     def draw(self, surf: pg.Surface, camera: Camera | None = None) -> None:
-        r = self.rect();
-        if camera is not None: sx, sy = camera.world_to_screen(r.x, r.y); r = pg.Rect(sx, sy, r.w, r.h)
-        pg.draw.rect(surf, (180, 80, 60), r)
+        if self.sprite:
+            self.sprite.draw(surf, self.x, self.y, camera=camera)
+        else:
+            r = self.rect()
+            if camera is not None:
+                sx, sy = camera.world_to_screen(r.x, r.y)
+                r = pg.Rect(sx, sy, r.w, r.h)
+            pg.draw.rect(surf, (180, 80, 60), r)
 
     def update(self, dt: float, player_pos: pg.Vector2, walls, projectiles):
         self._cd = max(0.0, self._cd - dt)
+
         if self._state == "charge":
+            self._set_anim("walk")
             if self._cd <= 0.0:
                 d = (player_pos - self.center())
                 if d.length_squared() > 0:
-                    d = d.normalize(); speed = 450.0
+                    d = d.normalize()
+                    speed = 500.0
                     self.vx, self.vy = d.x*speed, d.y*speed
-                    self._cd = 0.6; self._state = "dash"
-        else: # dash
-            nx, ny, collided = move_and_collide(self.x, self.y, 24, 24, self.vx*dt, self.vy*dt, walls, ox=-12, oy=-12, stop_on_collision=False)
+                    self._cd = 0.8
+                    self.dash_timer = 0.4
+                    self._state = "dash"
+
+        else:  # dash
+            self._set_anim("dash")
+            dx, dy = self.vx * dt, self.vy * dt
+            nx, ny, collided = move_and_collide(
+                self.x, self.y, 24, 24, dx, dy,
+                walls, ox=-12, oy=-12, stop_on_collision=False
+            )
             self.x, self.y = nx, ny
-            if collided or self._cd <= 0.0:
-                self._state = "charge"; self._cd = 0.8
+
+            self.dash_timer -= dt
+            if collided or self.dash_timer <= 0:
+                self._state = "charge"
+                self._cd = 0.8
+
                 for i in range(12):
-                    ang = i * (3.14159 * 2 / 12)
-                    v = pg.math.Vector2(160.0, 0).rotate_rad(ang)
-                    projectiles.append(Projectile(self.x, self.y, v.x, v.y, 6, 1, False, sprite_id=None))
+                    ang = i * (math.tau / 12)
+                    v = pg.Vector2(160.0, 0).rotate_rad(ang)
+                    projectiles.append(
+                        Projectile(self.x, self.y, v.x, v.y, 6, 1, False, sprite_id=None)
+                    )
+
+        if self.sprite:
+            self.sprite.update(dt)
