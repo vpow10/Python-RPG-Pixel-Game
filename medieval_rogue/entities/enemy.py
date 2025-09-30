@@ -37,6 +37,10 @@ class Slime(Enemy):
         super().__init__(x, y, sprite_id="slime", hp=3, speed=90.0)
         frames = load_strip(['assets','sprites','enemies', f'{self.sprite_id}_walk.png'], 32, 32)
         self.sprite = AnimatedSprite(frames, fps=6, loop=True, anchor='bottom')
+        
+    def rect(self):
+        w, h = S.SMALL_ENEMY_HITBOX
+        return pg.Rect(int(self.x-w//2), int(self.y-h), w, h)
 
     def draw(self, surf, camera: Camera=None):
         if self.sprite:
@@ -80,6 +84,10 @@ class Bat(Enemy):
         super().__init__(x, y, hp=1, sprite_id="bat", speed=180.0)
         frames = load_strip(['assets','sprites','enemies', f'{self.sprite_id}_walk.png'], 32, 32)
         self.sprite = AnimatedSprite(frames, fps=6, loop=True, anchor='bottom')
+        
+    def rect(self):
+        w, h = S.SMALL_ENEMY_HITBOX
+        return pg.Rect(int(self.x-w//2), int(self.y-h), w, h)
 
     def draw(self, surf, camera: Camera=None):
         if hasattr(self, 'sprite') and self.sprite:

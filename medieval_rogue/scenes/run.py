@@ -357,3 +357,5 @@ class RunScene(Scene):
             surf.blit(txt, (surf.get_width()//2 - txt.get_width()//2, surf.get_height()-48))
         draw_hud(surf, self.app.font, self.player.hp, self.max_hp, int(self.score), self.floor_i)
         draw_minimap(surf, self.rooms, self.current_gp)
+        self.camera.follow(self.player.x, self.player.y)
+        self.camera.clamp_to_room(self.current_room.world_rect)
