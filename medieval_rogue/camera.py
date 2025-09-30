@@ -17,19 +17,24 @@ class Camera:
         self.y += (target_cam_y - self.y) * lerp
 
     def clamp_to_room(self, room_rect: pg.Rect) -> None:
-        min_x = room_rect.left
-        min_y = room_rect.top
-        max_x = max(min_x, room_rect.right - self.w)
-        max_y = max(min_y, room_rect.bottom - self.h)
+        inset = int(S.ROOM_INSET)
+        wall = int(S.WALL_THICKNESS)
+        band = max(8, min(int(S.VIEW_GUTTER), inset + wall - 8))
 
-        if self.x < min_x:
-            self.x = float(min_x)
-        if self.y < min_y:
-            self.y = float(min_y)
-        if self.x > max_x:
-            self.x = float(max_x)
-        if self.y > max_y:
-            self.y = float(max_y)
+        interior = room_rect.inflate(-2*inset, -2*inset)
+        min_x = max(room_rect.left,  interior.left - band)
+        min_y = max(room_rect.top,   interior.top  - band)
+        max_x = min(room_rect.right - self.w, interior.right - self.w + band)
+        max_y = min(room_rect.bottom - self.h, interior.bottom - self.h + band)
+
+        # Handle tiny rooms
+        if max_x < min_x: max_x = min_x
+        if max_y < min_y: max_y = min_y
+
+        if self.x < min_x: self.x = float(min_x)
+        if self.y < min_y: self.y = float(min_y)
+        if self.x > max_x: self.x = float(max_x)
+        if self.y > max_y: self.y = float(max_y)
 
     def world_to_screen(self, wx: float, wy: float) -> tuple[int, int]:
         sx = int(round(wx - self.x + self.shake_x))

@@ -13,12 +13,18 @@ BASE_W, BASE_H = 1280, 736  # logical pixels
 SCALE = 1                   # window = BASE * SCALE
 FPS = 60
 
+# Visual framing / margins
+VIEW_GUTTER = 80
+ROOM_INSET = 72
+EDGE_FADE = 96
+
 # Sprite / hitbox sizing
 PLAYER_SPRITE_SIZE = 64
-PLAYER_HITBOX = (20, 48)
+PLAYER_HITBOX = (24, 48)
 
 ENEMY_SPRITE_SIZE = 64
-ENEMY_HITBOX = (24, 24)
+ENEMY_HITBOX = (24, 48)
+SMALL_ENEMY_HITBOX = (24, 24)
 
 BOSS_SPRITE_SIZE = 96
 BOSS_HITBOX = (64, 64)
@@ -65,12 +71,19 @@ ROOM_ENEMY_MIN = 3
 ROOM_ENEMY_MAX = 6
 RANDOM_SEED = None  # set to an int for deterministic runs, 4 -> item room up top 
 SAFE_RADIUS = 192
-BORDER = 16
+
+# HUD anchoring
+BORDER = 8
+UI_SAFE_TOP = 0 # reserved space at top inside gutter (0 = use gutter itself)
+UI_SAFE_RIGHT = 0
+UI_SAFE_BOTTOM = 0
+UI_SAFE_LEFT = 0
 
 # Dungeon / Rooms
+WALL_THICKNESS = 24
 ROOM_CELL_W = BASE_W
 ROOM_CELL_H = BASE_H
-DOOR_THICKNESS = 20
+DOOR_THICKNESS = 28
 DOOR_LENGTH = 72
 MIN_ROOMS = 6
 MAX_ROOMS = 12
@@ -78,5 +91,5 @@ DEBUG_MINIMAP = False
 DEBUG_ROOMS = True
 
 # Debug / testing
-FORCE_BOSS_IN_START_ROOM = True
+FORCE_BOSS_IN_START_ROOM = False
 FORCE_BOSS_ID = None
