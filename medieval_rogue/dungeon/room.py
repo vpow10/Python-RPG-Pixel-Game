@@ -1,10 +1,15 @@
 from __future__ import annotations
-import pygame as pg
+import pygame as pg, random
 from dataclasses import dataclass, field
 from typing import Literal, List, Tuple, Dict
 from medieval_rogue import settings as S
 from medieval_rogue.camera import Camera
+from assets.sprite_manager import _load_image, load_strip
 
+INSET = S.ROOM_INSET
+
+def inset_rect(r: pg.Rect, d:int) -> pg.Rect:
+    return pg.Rect(r.x + d, r.y + d, r.w - 2*d, r.h - 2*d)
 
 RoomType = Literal["combat", "item", "boss", "start"]
 Direction = Literal["N", "E", "S", "W"]
@@ -17,42 +22,265 @@ RectSpec = Tuple[int, int, int, int]
 
 # --- Patterns ---
 # Keys: (room_type, w_cells, h_cells)
+# NOTE: coordinates are authored in the base 320x180 logical space.
 PATTERNS: Dict[Tuple[RoomType, int, int], List[List[RectSpec]]] = {
+    # --- COMBAT 1x1 ---
     ("combat", 1, 1): [
-        [],     # empty
-        [(40, 40, 240, 12), (40, 128, 240, 12)],    # two horizontal bars
-        [(60, 30, 12, 120), (248, 30, 12, 120)],    # two pillars
-        [(110, 60, 100, 60)],                       # central block
+        [],  # empty
+        # Twin horizontal bars
+        [(40, 52, 240, 12), (40, 116, 240, 12)],
+        # Twin vertical pillars
+        [(70, 30, 14, 120), (236, 30, 14, 120)],
+        # Central block
+        [(110, 56, 100, 68)],
+        # Rim corridor (ring)
+        [(28, 28, 264, 12), (28, 140, 264, 12), (28, 40, 12, 100), (280, 40, 12, 100)],
+        # Cross
+        [(150, 32, 20, 116), (64, 84, 192, 20)],
+        # Four islands (near corners)
+        [(48, 44, 44, 28), (228, 44, 44, 28), (48, 108, 44, 28), (228, 108, 44, 28)],
+        # Staggered zig
+        [(60, 40, 28, 28), (120, 70, 28, 28), (180, 100, 28, 28), (240, 130, 28, 28)],
+        # twin mid bars (gap in center)
+        [(40, 84, 60, 12), (220, 84, 60, 12)],
+        # 4 small pillars
+        [(84, 44, 24, 24), (212, 44, 24, 24), (84, 116, 24, 24), (212, 116, 24, 24)],
+        # diamond lanes
+        [(140, 40, 40, 20), (60, 80, 40, 20), (220, 80, 40, 20), (140, 120, 40, 20)],
+        # side braces
+        [(40, 40, 12, 32), (40, 108, 12, 32), (268, 40, 12, 32), (268, 108, 12, 32)],
+        # twin central blocks
+        [(96, 56, 40, 68), (184, 56, 40, 68)],
+        # wide mid pads
+        [(64, 72, 56, 36), (200, 72, 56, 36)],
     ],
+
+    # --- COMBAT 2x1 (wide) ---
     ("combat", 2, 1): [
         [],
-        [(100, 40, 420, 12)],
-        [(260, 60, 40, 60)],
+        # Long central bar
+        [(100, 60, 420, 14)],
+        # Two offset blocks
+        [(160, 48, 60, 42), (420, 96, 60, 42)],
+        # Wide rim corridor
+        [(28, 28, 624, 12), (28, 140, 624, 12), (28, 40, 12, 100), (640, 40, 12, 100)],
+        # Triple lanes
+        [(80, 42, 180, 16), (80, 82, 180, 16), (80, 122, 180, 16),
+         (420, 42, 180, 16), (420, 82, 180, 16), (420, 122, 180, 16)],
+        # Pillar banks
+        [(160, 36, 20, 36), (200, 36, 20, 36), (240, 36, 20, 36),
+         (440, 108, 20, 36), (480, 108, 20, 36), (520, 108, 20, 36)],
+        [(160,52,80,18),(440,110,80,18)],
+        [(120,36,24,36),(200,36,24,36),(520,108,24,36),(600,108,24,36)],
+        [(100,84,140,16),(440,84,140,16)],
+        [(80,40,180,12),(80,128,180,12),(420,40,180,12),(420,128,180,12)],
+        [(280,30,24,120)],                                         # central tower
+        [(120,96,60,18),(220,60,60,18),(520,96,60,18),(420,60,60,18)],
     ],
+
+    # --- COMBAT 1x2 (tall) ---
     ("combat", 1, 2): [
         [],
-        [(40, 40, 240, 12), (40, 128, 240, 12)],
-        [(60, 30, 12, 120), (248, 30, 12, 120)],
-        [(110, 60, 100, 60)],
+        # Two horizontal bars
+        [(40, 60, 240, 14), (40, 260, 240, 14)],
+        # Central tower
+        [(146, 80, 28, 140)],
+        # Rim corridor
+        [(28, 28, 264, 12), (28, 332, 264, 12), (28, 40, 12, 292), (280, 40, 12, 292)],
+        # Ladder steps
+        [(60, 70, 36, 24), (100, 120, 36, 24), (140, 170, 36, 24),
+         (180, 220, 36, 24), (220, 270, 36, 24)],
+        [(64,96,192,16)],
+        [(140,56,40,40),(140,224,40,40)],
+        [(48,60,28,28),(244,60,28,28),(48,300,28,28),(244,300,28,28)],
+        [(56,120,208,14),(56,240,208,14)],
+        [(80,80,160,20),(80,280,160,20)],
+        [(110,150,100,20)],    
     ],
+
+    # --- COMBAT 2x2 (big) ---
     ("combat", 2, 2): [
         [],
-        [(120, 90, 360, 20), (120, 270, 360, 20)],
-        [(80, 80, 90, 90), (430, 80, 90, 90), (80, 210, 90, 90), (430, 210, 90, 90)],
+        # Twin horizontal bars (wider)
+        [(120, 100, 360, 18), (120, 260, 360, 18)],
+        # Four big islands
+        [(100, 80, 88, 74), (432, 80, 88, 74), (100, 208, 88, 74), (432, 208, 88, 74)],
+        # Rim corridor
+        [(28, 28, 624, 12), (28, 332, 624, 12), (28, 40, 12, 292), (640, 40, 12, 292)],
+        # Cross with core
+        [(320-12, 60, 24, 240), (120, 180-10, 400, 20), (320-28, 156, 56, 48)],
+        [(120,84,160,18),(360,84,160,18),(120,276,160,18),(360,276,160,18)],
+        [(160,140,80,56),(400,140,80,56)],
+        [(92,92,56,56),(472,92,56,56),(92,232,56,56),(472,232,56,56)],
+        [(80,60,200,16),(400,60,200,16),(80,308,200,16),(400,308,200,16)],
+        [(320-18,92,36,196)],                                      # tall central
+        [(160,180-10,320,20)],                                     # wide mid bar
     ],
+
+    # --- ITEM ---
     ("item", 1, 1): [
         [],
-        [(120, 70, 80, 40)],
+        # Small dais/platform in middle
+        [(132, 74, 56, 32)],
+        # Side shelves
+        [(48, 60, 32, 20), (240, 60, 32, 20), (48, 112, 32, 20), (240, 112, 32, 20)],
+        [(132,64,56,20)], [(132,96,56,20)], [(92,74,20,32)], [(208,74,20,32)],
     ],
+
+    # --- BOSS ---
     ("boss", 1, 1): [
         [],
-        [(60, 40, 200, 12), (60, 128, 200, 12)],
+        # Two long rails
+        [(48, 48, 224, 14), (48, 118, 224, 14)],
+        # Four corner pylons
+        [(44, 44, 24, 24), (252, 44, 24, 24), (44, 122, 24, 24), (252, 122, 24, 24)],
+        [(56,56,208,12),(56,112,208,12)],
+        [(64,64,24,24),(232,64,24,24),(64,104,24,24),(232,104,24,24)],
+        [(120,52,80,20),(120,104,80,20)],
     ],
     ("boss", 2, 2): [
         [],
-        [(160, 100, 280, 20), (160, 260, 280, 20)],
+        # Arena ring
+        [(40, 40, 600, 18), (40, 322, 600, 18), (40, 58, 18, 264), (622, 58, 18, 264)],
+        # Inner bumps
+        [(220, 140, 40, 30), (420, 140, 40, 30), (320-20, 180-15, 40, 30)],
     ],
 }
+
+# Helpers
+def _load_optional(path_parts):
+    try:
+        return _load_image(path_parts)
+    except Exception:
+        return None
+
+_FLOOR = None
+_WALLS  = None
+_OBS   = None
+_DOOR  = {}   # "h_open", "h_closed", "v_open", "v_closed"
+
+def _get_tiles():
+    global _FLOOR, _WALLS, _OBS, _DOOR
+    
+    TILE = S.TILE_SIZE
+    
+    if _FLOOR is None:
+        try:
+            _FLOOR = load_strip(['assets','sprites','tiles','floor.png'], TILE, TILE)
+        except Exception:
+            _FLOOR = []
+
+        try:
+            _WALLS = load_strip(['assets','sprites','tiles','walls.png'], TILE, TILE)
+        except Exception:
+            _WALLS = []
+            
+        try:
+            _OBS = load_strip(['assets','sprites','tiles','obstacles.png'], TILE, TILE)
+        except Exception:
+            _OBS = []
+
+        _DOOR = {
+            "h_open":   _load_optional(['assets','sprites','tiles','door_h_open.png']),
+            "h_closed": _load_optional(['assets','sprites','tiles','door_h_closed.png']),
+            "v_open":   _load_optional(['assets','sprites','tiles','door_v_open.png']),
+            "v_closed": _load_optional(['assets','sprites','tiles','door_v_closed.png']),
+        }
+    return _FLOOR, _WALLS, _OBS, _DOOR
+
+def _variant_index_at(
+    images: list[pg.Surface],
+    wx: int,
+    wy: int,
+    salt: int = 0,
+    weights: list[int] | None = None
+) -> int:
+    """
+    Pick a tile index using a high-quality, deterministic hash per *tile position*,
+    with weights.
+    """
+    if not images:
+        return 0
+
+    tw = max(1, images[0].get_width())
+    th = max(1, images[0].get_height())
+    tx = wx // tw
+    ty = wy // th
+
+    base_seed = (S.RANDOM_SEED if getattr(S, "RANDOM_SEED", None) is not None else 1337) & 0xFFFFFFFFFFFFFFFF
+    z  = (tx & 0xFFFFFFFFFFFFFFFF) * 0x9E3779B97F4A7C15
+    z ^= (ty & 0xFFFFFFFFFFFFFFFF) * 0xC2B2AE3D27D4EB4F
+    z ^= (salt & 0xFFFFFFFFFFFFFFFF) * 0x165667B19E3779F9
+    z ^= base_seed
+    z &= 0xFFFFFFFFFFFFFFFF
+
+    z ^= (z >> 30); z = (z * 0xBF58476D1CE4E5B9) & 0xFFFFFFFFFFFFFFFF
+    z ^= (z >> 27); z = (z * 0x94D049BB133111EB) & 0xFFFFFFFFFFFFFFFF
+    z ^= (z >> 31)
+    rnd = z & 0xFFFFFFFFFFFFFFFF
+
+    w = _weights_for_images(images, weights)
+    total = sum(w)
+    r = (rnd * total) >> 64 if hasattr(int, "__mul__") else (rnd % total)
+    if total > 0 and r >= total:
+        r = rnd % total
+
+    acc = 0
+    for i, wi in enumerate(w):
+        acc += wi
+        if r < acc:
+            return i
+    return len(images) - 1
+
+def _tile_rect_world_variants(
+    surf: pg.Surface,
+    images: list[pg.Surface],
+    rect_world: pg.Rect,
+    camera: Camera | None,
+    weights: list[int] | None = None,
+    salt: int = 0,
+):
+    if not images:
+        return
+    tw, th = images[0].get_width(), images[0].get_height()
+
+    start_x = rect_world.left - (rect_world.left % tw)
+    start_y = rect_world.top  - (rect_world.top  % th)
+
+    y = start_y
+    while y < rect_world.bottom:
+        x = start_x
+        while x < rect_world.right:
+            idx = _variant_index_at(images, x, y, salt=salt, weights=weights)
+            img = images[idx]
+            sx, sy = (x, y) if camera is None else camera.world_to_screen(x, y)
+            if x + tw > rect_world.left and x < rect_world.right and y + th > rect_world.top and y < rect_world.bottom:
+                surf.blit(img, (sx, sy))
+            x += tw
+        y += th
+        
+def _stable_hash_int(*parts: object) -> int:
+    seed = (S.RANDOM_SEED if getattr(S, "RANDOM_SEED", None) is not None else 1337)
+    h = int(seed) & 0x7FFFFFFF
+    for p in parts:
+        s = str(p)
+        for ch in s:
+            h = ((h * 16777619) ^ ord(ch)) & 0x7FFFFFFF
+    return h
+
+def _weights_for_images(images: list[pg.Surface], weights: list[int] | None) -> list[int]:
+    n = len(images)
+    if n == 0:
+        return []
+    if not weights:
+        return [1] * n
+    out = [max(0, int(w)) for w in weights[:n]]
+    if len(out) < n:
+        out.extend([1] * (n - len(out)))
+    total = sum(out)
+    if total <= 0:
+        return [1] * n
+    return out
 
 @dataclass
 class Door:
@@ -62,17 +290,24 @@ class Door:
 
 @dataclass
 class Room:
-    kind: Room
+    kind: RoomType
     gx: int
     gy: int
     w_cells: int = 1
     h_cells: int = 1
     pattern: List[RectSpec] = field(default_factory=list)
+    variant_salt: int = 0
     discovered: bool = False
     visited: bool = False
     cleared: bool = False
     doors: Dict[Direction, Door] = field(default_factory=dict)
 
+    wall_variant_index: int = 0
+    obs_variant_index: int = 0
+
+    def __post_init__(self):
+        self.variant_salt = _stable_hash_int("room-tiles", self.kind, self.gx, self.gy, self.w_cells, self.h_cells)
+            
     # --- Dimensions & transforms ---
     @property
     def world_rect(self) -> pg.Rect:
@@ -85,16 +320,27 @@ class Room:
 
     def to_world(self, p: RectSpec) -> pg.Rect:
         x, y, w, h = p
-        # Scale pattern per cell block; pattern is authored for 1x1, so tile across
-        sx = int(round(x * _SCALE_X))
-        sy = int(round(y * _SCALE_Y))
-        sw = int(round(w * _SCALE_X))
-        sh = int(round(h * _SCALE_Y))
-        return pg.Rect(self.world_rect.x + sx, self.world_rect.y + sy, sw, sh)
+
+        INTERIOR_PAD = 6
+        interior = inset_rect(self.world_rect, S.ROOM_INSET + S.WALL_THICKNESS + INTERIOR_PAD)
+
+        # Authoring canvas is 320×180 *per cell*
+        base_w = _BASE_PATTERN_W * self.w_cells
+        base_h = _BASE_PATTERN_H * self.h_cells
+
+        # Scale authored rect into the interior
+        sx = interior.x + int(round((x / base_w) * interior.w))
+        sy = interior.y + int(round((y / base_h) * interior.h))
+        sw = max(1, int(round((w / base_w) * interior.w)))
+        sh = max(1, int(round((h / base_h) * interior.h)))
+
+        r = pg.Rect(sx, sy, sw, sh)
+        return r.clip(interior)
 
     # --- Walls ---
     def wall_rects(self) -> List[pg.Rect]:
-        r = self.world_rect; b = S.BORDER
+        r = inset_rect(self.world_rect, INSET)
+        b = S.WALL_THICKNESS
         walls: List[pg.Rect] = []
 
         # Helper to carve a gap for a door along a 1D span
@@ -132,7 +378,7 @@ class Room:
         Door is centered on the overlapping span between this room and its neighbour.
         """
         self.doors.clear()
-        my = self.world_rect
+        my = inset_rect(self.world_rect, INSET)
         for side, nbr in neighbours.items():
             if not nbr: continue
             other = nbr.world_rect
@@ -165,13 +411,55 @@ class Room:
             x, y = camera.world_to_screen(r.x, r.y)
             return pg.Rect(int(x), int(y), int(r.w), int(r.h))
 
-        pg.draw.rect(surf, S.FLOOR_COLOR, _apply(self.world_rect))
+        FLOOR, WALL, OBS, DOOR = _get_tiles()
 
+        # floor
+        interior = inset_rect(self.world_rect, INSET + S.WALL_THICKNESS)
+        FLOOR_WEIGHTS = getattr(S, "FLOOR_TILE_WEIGHTS", None)
+        if FLOOR:
+            _tile_rect_world_variants(
+                surf, FLOOR, interior, camera,
+                weights=FLOOR_WEIGHTS,
+                salt=self.variant_salt ^ 0xD1B54A32,
+            )
+        else:
+            pg.draw.rect(surf, S.FLOOR_COLOR, _apply(interior))
+
+        # walls
         walls = self.wall_rects()
-        for w in walls[:4]:
-            pg.draw.rect(surf, S.BORDER_COLOR, _apply(w))
-        for w in walls[4:]:
-            pg.draw.rect(surf, S.OBSTACLES_COLOR, _apply(w))
+
+        WALL_TILE_WEIGHTS = getattr(S, "WALL_TILE_WEIGHTS", None)
+        OBS_TILE_WEIGHTS  = getattr(S, "OBS_TILE_WEIGHTS", None)
+
+        for wrect in walls[:4]:
+            if WALL:
+                _tile_rect_world_variants(
+                    surf, WALL, wrect, camera,
+                    weights=WALL_TILE_WEIGHTS,
+                    salt=self.variant_salt,
+                )
+            else:
+                pg.draw.rect(surf, S.BORDER_COLOR, _apply(wrect))
+
+        for wrect in walls[4:]:
+            imgs = OBS if OBS else WALL
+            if imgs:
+                _tile_rect_world_variants(
+                    surf, imgs, wrect, camera,
+                    weights=(OBS_TILE_WEIGHTS if imgs is OBS else WALL_TILE_WEIGHTS),
+                    salt=self.variant_salt ^ 0x9E3779B9,
+                )
+            else:
+                pg.draw.rect(surf, S.OBSTACLES_COLOR, _apply(wrect))
+
         for d in self.doors.values():
-            color = S.DOOR_OPEN_COLOR if d.open else S.DOOR_CLOSED_COLOR
-            pg.draw.rect(surf, color, _apply(d.rect))
+            sr = _apply(d.rect)
+            horizontal = (d.side in ("N","S"))
+            key = ("h_" if horizontal else "v_") + ("open" if d.open else "closed")
+            img = DOOR.get(key)
+            if img:
+                scaled = pg.transform.scale(img, (sr.w, sr.h))
+                surf.blit(scaled, sr.topleft)
+            else:
+                color = S.DOOR_OPEN_COLOR if d.open else S.DOOR_CLOSED_COLOR
+                pg.draw.rect(surf, color, sr)

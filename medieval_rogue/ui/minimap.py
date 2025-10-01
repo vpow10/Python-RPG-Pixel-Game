@@ -10,7 +10,7 @@ GridPos = Tuple[int, int]
 def draw_minimap(surf: pg.Surface, rooms: Dict[GridPos, Room], current: GridPos) -> None:
     if not rooms:
         return
-    margin = 10
+    margin = 10 + S.BORDER
     cell = 12
 
     xs = [gp[0] for gp in rooms]
@@ -20,7 +20,7 @@ def draw_minimap(surf: pg.Surface, rooms: Dict[GridPos, Room], current: GridPos)
     w = (maxx - minx + 1) * cell * 2
     h = (maxy - miny + 1) * cell * 2
     x0 = surf.get_width() - w - margin
-    y0 = margin
+    y0 = margin + (S.VIEW_GUTTER // 4)
 
     panel = pg.Rect(x0-6, y0-6, w+12, h+12)
     pg.draw.rect(surf, (20,20,26), panel)

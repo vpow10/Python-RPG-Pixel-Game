@@ -3,12 +3,30 @@ import pygame as pg
 from medieval_rogue import settings as S
 from medieval_rogue.scene_manager import Scene
 from medieval_rogue.entities.player_classes import PLAYER_CLASSES
+from assets.sprite_manager import AnimatedSprite, load_strip
+from medieval_rogue.utils import resource_path
+import os
 
 class CharacterSelect(Scene):
     def __init__(self, app) -> None:
         super().__init__(app)
         self.options = list(PLAYER_CLASSES.values())
         self.index = 0
+
+        self.preview_map = {}
+        self.preview_frame_size = (64, 64)
+        for cls in self.options:
+            sprite_id = getattr(cls, "sprite_id", None) or "archer"
+            try:
+                frames = load_strip(['assets', 'sprites', 'player', f'{sprite_id}', 'idle.png'],
+                                     self.preview_frame_size[0],
+                                     self.preview_frame_size[1])
+                # prefer fps from class if present, otherwise default to 2 for idle previews
+                fps = getattr(cls, "sprite_fps", 2.0)
+                anim = AnimatedSprite(frames, fps=fps, loop=True, anchor='bottom')
+                self.preview_map[sprite_id] = anim
+            except Exception as exc:
+                self.preview_map[sprite_id] = None
 
     def handle_event(self, e: pg.event.Event) -> None:
         if e.type == pg.KEYDOWN:
@@ -23,7 +41,12 @@ class CharacterSelect(Scene):
                 self.next_scene = "menu"
 
     def update(self, dt: float) -> None:
-        pass
+        # Update the currently shown preview animation
+        hero = self.options[self.index]
+        sprite_id = getattr(hero, "sprite_id", "archer")
+        anim = self.preview_map.get(sprite_id)
+        if anim:
+            anim.update(dt)
 
     def _draw_arrow(self, surf: pg.Surface, center_x: int, center_y: int, left: bool = True):
         size = 18
@@ -93,9 +116,29 @@ class CharacterSelect(Scene):
             txt = self.app.font_small.render(line, True, (200,200,200))
             surf.blit(txt, (desc_x, desc_y + i * (self.app.font_small.get_linesize() + 2)))
 
-        # small footer: index / count
         footer = self.app.font_small.render(f"{self.index+1} / {len(self.options)}", True, (180,180,180))
         surf.blit(footer, (card_x + card_w - footer.get_width() - 8, card_y + card_h - footer.get_height() - 8))
+
+        preview_area_x = card_x + card_w // 2 + 100
+        preview_area_y = card_y + card_h // 2 + 20
+
+        sprite_id = getattr(hero, "sprite_id", "archer")
+        anim = self.preview_map.get(sprite_id)
+        if anim:
+            frame_w, frame_h = self.preview_frame_size
+            max_w = card_w // 2
+            max_h = card_h - 40
+            scale_w = max(1, min(5, max_w // frame_w))
+            scale_h = max(1, min(5, max_h // frame_h))
+            scale = min(scale_w, scale_h, 4)  # clamp to 4 for visuals
+
+            draw_x = preview_area_x
+            draw_y = card_y + card_h - 8  # bottom of card for 'bottom' anchor
+            anim.draw(surf, draw_x, draw_y, camera=None, scale=scale, flip_x=False)
+        else:
+            # fallback: draw placeholder rectangle
+            placeholder = self.app.font_small.render("No sprite", True, (200,200,200))
+            surf.blit(placeholder, (preview_area_x - placeholder.get_width()//2, preview_area_y))
 
     def _wrap_text(self, text: str, font: pg.font.Font, max_width: int) -> list[str]:
         """Utility: simple word wrap for small blocks."""

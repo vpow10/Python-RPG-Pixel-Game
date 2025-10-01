@@ -5,7 +5,7 @@ from medieval_rogue.scene_manager import Scene
 from medieval_rogue.entities.player import Player, PlayerStats
 from medieval_rogue.entities.enemy_registry import BOSSES
 from medieval_rogue.entities.projectile import Projectile
-from medieval_rogue.entities.enemy_registry import create_boss, spawn_from_pattern, SPAWN_PATTERNS
+from medieval_rogue.entities.enemy_registry import create_boss, spawn_from_pattern, SPAWN_PATTERNS, pick_spawn_pattern
 from medieval_rogue.dungeon.generation import generate_floor
 from medieval_rogue.dungeon.room import Room, Direction
 from medieval_rogue.items.basic_items import get_item_by_name, ITEMS
@@ -14,6 +14,7 @@ from medieval_rogue.ui.minimap import draw_minimap
 from assets.sound_manager import load_sounds
 from medieval_rogue.camera import Camera
 from medieval_rogue.entities.pickups import ItemPickup
+from medieval_rogue.ui.edge_fade import draw_edge_fade
 
 class RunScene(Scene):
     def __init__(self, app):
@@ -32,7 +33,7 @@ class RunScene(Scene):
             )
         else:
             stats = PlayerStats()
-        self.player = Player(S.BASE_W//2, S.BASE_H//2, stats=stats)
+        self.player = Player(S.BASE_W//2, S.BASE_H//2, stats=stats, cls=pc if pc else "archer")
         self.player.sfx_shot = self.sounds.get("arrow_shot")
         self.projectiles: list[Projectile] = []
         self.e_projectiles: list[Projectile] = []
@@ -45,6 +46,10 @@ class RunScene(Scene):
         self.current_room.visited = True
         for _, r in self._neighbors_of(self.current_gp).items():
             if r: r.discovered = True
+        if getattr(S, "FORCE_BOSS_IN_START_ROOM", False):
+            self.current_room.kind = "boss"
+            self.boss_cleared = False
+            self.message = ""
         self.floor_i = 0; self.room_i = 0
         self.max_hp = self.player.stats.hp
         self.message = ""; self.room_cleared = False
@@ -76,6 +81,10 @@ class RunScene(Scene):
         self.e_projectiles.clear()
         self.boss = None
         self.item_available = None
+        
+        self._place_player_on_entry(from_dir)
+        self.camera.center_on(self.player.x, self.player.y)
+        self.camera.clamp_to_room(self.current_room.world_rect)
 
         if self.current_room.kind == "combat":
             if not self.current_room.cleared:
@@ -91,17 +100,22 @@ class RunScene(Scene):
                 self._spawn_boss_encounter()
                 self.boss_cleared = True
 
-        self._place_player_on_entry(from_dir)
-        self.camera.center_on(self.player.x, self.player.y)
-        self.camera.clamp_to_room(self.current_room.world_rect)
-
     def _place_player_on_entry(self, from_dir: Direction | None) -> None:
         r = self.current_room.world_rect
-        if from_dir == "N": self.player.x, self.player.y = r.centerx, r.top + 80
-        elif from_dir == "S": self.player.x, self.player.y = r.centerx, r.bottom - 80
-        elif from_dir == "W": self.player.x, self.player.y = r.left + 80, r.centery
-        elif from_dir == "E": self.player.x, self.player.y = r.right - 80, r.centery
-        else: self.player.x, self.player.y = r.centerx, r.centery
+        M = 16  # small safety margin so we never clip walls
+        safe = pg.Rect(
+            r.left   + S.ROOM_INSET + S.WALL_THICKNESS + M,
+            r.top    + S.ROOM_INSET + S.WALL_THICKNESS + M,
+            r.width  - 2*(S.ROOM_INSET + S.WALL_THICKNESS + M),
+            r.height - 2*(S.ROOM_INSET + S.WALL_THICKNESS + M),
+        )
+
+        if from_dir == "N":      self.player.x, self.player.y = safe.centerx, safe.top + 40
+        elif from_dir == "S":    self.player.x, self.player.y = safe.centerx, safe.bottom - 40
+        elif from_dir == "W":    self.player.x, self.player.y = safe.left + 40, safe.centery
+        elif from_dir == "E":    self.player.x, self.player.y = safe.right - 40, safe.centery
+        else:                    self.player.x, self.player.y = safe.centerx, safe.centery
+
         self.player.set_position(self.player.x, self.player.y)
 
     def _find_free_spot(self, preferred: tuple[float, float], walls: list[pg.Rect], w: int = 16, h: int = 16,
@@ -159,9 +173,13 @@ class RunScene(Scene):
 
     def _spawn_combat_wave(self) -> None:
         rng = random.Random(S.RANDOM_SEED)
-        pattern_name = rng.choice(list(SPAWN_PATTERNS.keys()))
         r = self.current_room.world_rect
-        spawned = spawn_from_pattern(pattern_name, r)
+        name = pick_spawn_pattern(self.current_room.w_cells, self.current_room.h_cells, rng)
+        spawned = spawn_from_pattern(
+            name, r,
+            avoid_pos=(self.player.x, self.player.y),
+            avoid_radius=getattr(S, "SAFE_RADIUS", 160)
+        )
         self.enemies.extend(spawned)
         self.message = f"Enemies: {len(spawned)}"
 
@@ -176,9 +194,10 @@ class RunScene(Scene):
     def _spawn_boss_encounter(self) -> None:
         r = self.current_room.world_rect
         boss_ids = list(BOSSES.keys())
-        boss_id = random.choice(boss_ids)
+        forced = getattr(S, "FORCE_BOSS_ID", None)
+        boss_id = forced if (forced in boss_ids) else random.choice(boss_ids)
         self.boss = create_boss(boss_id, r.centerx, r.centery)
-        self.message = f"Boss: {boss_id}"
+        self.message = f"Boss: {self.boss.name}"
 
     def handle_event(self, e: pg.event.Event) -> None:
         if e.type == pg.KEYDOWN:
@@ -201,6 +220,11 @@ class RunScene(Scene):
         walls = room.wall_rects()
 
         keys = pg.key.get_pressed(); mouse_buttons = pg.mouse.get_pressed(); mouse_pos = pg.mouse.get_pos()
+        
+        # Camera
+        self.camera.follow(self.player.x, self.player.y)
+        self.camera.clamp_to_room(self.current_room.world_rect)
+        
         # Convert to world-space for aiming
         world_mouse = self.camera.screen_to_world(mouse_pos[0], mouse_pos[1])
 
@@ -279,7 +303,7 @@ class RunScene(Scene):
                     self.boss = None
                     self.score += S.SCORE_PER_BOSS
                     self.room_cleared = True
-                    self.message = "Boss defeated! Press Space for next room"
+                    self.message = "Boss defeated! Press Space for next floor"
                     try:
                         name = random.choice(ITEMS).name
                         preferred = (self.current_room.world_rect.centerx, self.current_room.world_rect.centery)
@@ -322,10 +346,6 @@ class RunScene(Scene):
                         self._enter_room(nxt, from_dir={"N":"S","S":"N","W":"E","E":"W"}[side])
                         break
 
-        # Camera
-        self.camera.follow(self.player.x, self.player.y)
-        self.camera.clamp_to_room(self.current_room.world_rect)
-
         # Player death
         if self.player.hp <= 0:
             self.app.final_score = int(self.score)
@@ -334,6 +354,7 @@ class RunScene(Scene):
     def draw(self, surf: pg.Surface) -> None:
         w, h = S.BASE_W, S.BASE_H
         self.current_room.draw(surf, camera=self.camera)
+        draw_edge_fade(surf, self.camera, self.current_room.world_rect)
         for p in self.projectiles: p.draw(surf, camera=self.camera)
         for p in self.e_projectiles: p.draw(surf, camera=self.camera)
         for e in self.enemies: e.draw(surf, camera=self.camera)
@@ -350,3 +371,4 @@ class RunScene(Scene):
             surf.blit(txt, (surf.get_width()//2 - txt.get_width()//2, surf.get_height()-48))
         draw_hud(surf, self.app.font, self.player.hp, self.max_hp, int(self.score), self.floor_i)
         draw_minimap(surf, self.rooms, self.current_gp)
+        self.camera.follow(self.player.x, self.player.y)
