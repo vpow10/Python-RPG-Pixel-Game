@@ -15,6 +15,8 @@ from assets.sound_manager import load_sounds
 from medieval_rogue.camera import Camera
 from medieval_rogue.entities.pickups import ItemPickup
 from medieval_rogue.ui.edge_fade import draw_edge_fade
+from medieval_rogue.ui.lighting import compute_torches_for_room, update_torches, draw_torches, apply_lighting
+
 
 class RunScene(Scene):
     def __init__(self, app):
@@ -39,6 +41,7 @@ class RunScene(Scene):
         self.e_projectiles: list[Projectile] = []
         self.enemies = []
         self.boss = None
+        self.torches = []
         self.floor = generate_floor(0)
         self.rooms: dict[tuple[int,int], Room] = self.floor.rooms
         self.current_gp = self.floor.start
@@ -76,6 +79,7 @@ class RunScene(Scene):
         self.current_room.compute_doors(nbrs)
 
         self.walls = self.current_room.wall_rects()
+        self.torches = compute_torches_for_room(self.current_room)
         self.enemies.clear()
         self.projectiles.clear()
         self.e_projectiles.clear()
@@ -235,6 +239,10 @@ class RunScene(Scene):
             if self.hitstop_timer <= 0:
                 self.timescale = 1.0
 
+        # Torches
+        update_torches(self.torches, dt)
+        
+        # Player
         self.player.update(dt, keys, mouse_buttons, world_mouse, walls, self.projectiles)
 
         # Player projectiles
@@ -355,7 +363,7 @@ class RunScene(Scene):
     def draw(self, surf: pg.Surface) -> None:
         w, h = S.BASE_W, S.BASE_H
         self.current_room.draw(surf, camera=self.camera)
-        draw_edge_fade(surf, self.camera, self.current_room.world_rect)
+        draw_torches(surf, self.camera, self.torches)
         for p in self.projectiles: p.draw(surf, camera=self.camera)
         for p in self.e_projectiles: p.draw(surf, camera=self.camera)
         for e in self.enemies: e.draw(surf, camera=self.camera)
@@ -373,6 +381,8 @@ class RunScene(Scene):
         if self.message:
             txt = self.app.font.render(self.message, True, (220,220,220))
             surf.blit(txt, (surf.get_width()//2 - txt.get_width()//2, surf.get_height()-48))
+        apply_lighting(surf, self.camera, self.torches)
+        draw_edge_fade(surf, self.camera, self.current_room.world_rect)
         draw_hud(surf, self.app.font, self.player.hp, self.player.stats.hp, int(self.score), self.floor_i)
         draw_minimap(surf, self.rooms, self.current_gp)
         self.camera.follow(self.player.x, self.player.y)
