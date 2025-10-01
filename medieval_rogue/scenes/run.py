@@ -204,7 +204,7 @@ class RunScene(Scene):
             if e.key == pg.K_ESCAPE:
                 self.next_scene = "menu"
                 return
-            if e.key == pg.K_SPACE:
+            if e.key == pg.K_n:
                 if self.room_cleared and self.current_room.kind == "boss":
                     self._advance_floor()
         if e.type == pg.MOUSEBUTTONDOWN:
@@ -303,7 +303,7 @@ class RunScene(Scene):
                     self.boss = None
                     self.score += S.SCORE_PER_BOSS
                     self.room_cleared = True
-                    self.message = "Boss defeated! Press Space for next floor"
+                    self.message = "Boss defeated!"
                     try:
                         name = random.choice(ITEMS).name
                         preferred = (self.current_room.world_rect.centerx, self.current_room.world_rect.centery)
@@ -367,6 +367,9 @@ class RunScene(Scene):
             pg.draw.rect(surf, (60,40,40), (20, 28, w - 40, 6))
             hpw = int((w-40) * max(0, self.boss.hp) / self.boss.max_hp)
             pg.draw.rect(surf, (200,80,80), (20, 28, hpw, 6))
+        if self.current_room.kind == "boss" and self.room_cleared and not self.boss:
+            hint = self.app.font.render("Press N to advance to next floor", True, (230,230,230))
+            surf.blit(hint, (surf.get_width()//2 - hint.get_width()//2, surf.get_height()-72))
         if self.message:
             txt = self.app.font.render(self.message, True, (220,220,220))
             surf.blit(txt, (surf.get_width()//2 - txt.get_width()//2, surf.get_height()-48))
