@@ -166,7 +166,7 @@ def _get_tiles():
     
     if _FLOOR is None:
         try:
-            _FLOOR = load_strip(['assets','sprites','tiles','floor','floor_sheet.png'], TILE, TILE)
+            _FLOOR = load_strip(['assets','sprites','tiles','floor.png'], TILE, TILE)
         except Exception:
             _FLOOR = []
 
@@ -176,7 +176,7 @@ def _get_tiles():
             _WALLS = []
             
         try:
-            _OBS = load_strip(['assets','sprites','tiles','obstacle_sheet.png'], TILE, TILE)
+            _OBS = load_strip(['assets','sprites','tiles','obstacles.png'], TILE, TILE)
         except Exception:
             _OBS = []
 
@@ -188,35 +188,58 @@ def _get_tiles():
         }
     return _FLOOR, _WALLS, _OBS, _DOOR
 
-def _blit_tiled(surf: pg.Surface, img: pg.Surface, rect: pg.Rect):
-    """Tile an image inside a *screen-space* rect."""
-    tw, th = img.get_width(), img.get_height()
-    start_x = rect.left - (rect.left % tw)
-    start_y = rect.top  - (rect.top  % th)
-    for yy in range(start_y, rect.bottom, th):
-        for xx in range(start_x, rect.right, tw):
-            surf.blit(img, (xx, yy))
-
-def _variant_index_at(images: list[pg.Surface], wx: int, wy: int) -> int:
-    """Choose a variant index from images based on world tile coordinate."""
+def _variant_index_at(
+    images: list[pg.Surface],
+    wx: int,
+    wy: int,
+    salt: int = 0,
+    weights: list[int] | None = None
+) -> int:
+    """
+    Pick a tile index using a high-quality, deterministic hash per *tile position*,
+    with weights.
+    """
     if not images:
         return 0
-    tw = images[0].get_width()
-    th = images[0].get_height()
-    tx = wx // max(1, tw)
-    ty = wy // max(1, th)
-    seed = (S.RANDOM_SEED if S.RANDOM_SEED is not None else 1337)
-    h = (tx * 73856093) ^ (ty * 19349663) ^ int(seed)
-    if h < 0: h = -h
-    return h % len(images)
+
+    tw = max(1, images[0].get_width())
+    th = max(1, images[0].get_height())
+    tx = wx // tw
+    ty = wy // th
+
+    base_seed = (S.RANDOM_SEED if getattr(S, "RANDOM_SEED", None) is not None else 1337) & 0xFFFFFFFFFFFFFFFF
+    z  = (tx & 0xFFFFFFFFFFFFFFFF) * 0x9E3779B97F4A7C15
+    z ^= (ty & 0xFFFFFFFFFFFFFFFF) * 0xC2B2AE3D27D4EB4F
+    z ^= (salt & 0xFFFFFFFFFFFFFFFF) * 0x165667B19E3779F9
+    z ^= base_seed
+    z &= 0xFFFFFFFFFFFFFFFF
+
+    z ^= (z >> 30); z = (z * 0xBF58476D1CE4E5B9) & 0xFFFFFFFFFFFFFFFF
+    z ^= (z >> 27); z = (z * 0x94D049BB133111EB) & 0xFFFFFFFFFFFFFFFF
+    z ^= (z >> 31)
+    rnd = z & 0xFFFFFFFFFFFFFFFF
+
+    w = _weights_for_images(images, weights)
+    total = sum(w)
+    r = (rnd * total) >> 64 if hasattr(int, "__mul__") else (rnd % total)
+    if total > 0 and r >= total:
+        r = rnd % total
+
+    acc = 0
+    for i, wi in enumerate(w):
+        acc += wi
+        if r < acc:
+            return i
+    return len(images) - 1
 
 def _tile_rect_world_variants(
     surf: pg.Surface,
     images: list[pg.Surface],
     rect_world: pg.Rect,
-    camera: Camera | None
+    camera: Camera | None,
+    weights: list[int] | None = None,
+    salt: int = 0,
 ):
-    """Tile a rect in *world coords* using per-tile variant selection that is stable by world position."""
     if not images:
         return
     tw, th = images[0].get_width(), images[0].get_height()
@@ -228,14 +251,36 @@ def _tile_rect_world_variants(
     while y < rect_world.bottom:
         x = start_x
         while x < rect_world.right:
-            idx = _variant_index_at(images, x, y)
+            idx = _variant_index_at(images, x, y, salt=salt, weights=weights)
             img = images[idx]
             sx, sy = (x, y) if camera is None else camera.world_to_screen(x, y)
-
             if x + tw > rect_world.left and x < rect_world.right and y + th > rect_world.top and y < rect_world.bottom:
                 surf.blit(img, (sx, sy))
             x += tw
         y += th
+        
+def _stable_hash_int(*parts: object) -> int:
+    seed = (S.RANDOM_SEED if getattr(S, "RANDOM_SEED", None) is not None else 1337)
+    h = int(seed) & 0x7FFFFFFF
+    for p in parts:
+        s = str(p)
+        for ch in s:
+            h = ((h * 16777619) ^ ord(ch)) & 0x7FFFFFFF
+    return h
+
+def _weights_for_images(images: list[pg.Surface], weights: list[int] | None) -> list[int]:
+    n = len(images)
+    if n == 0:
+        return []
+    if not weights:
+        return [1] * n
+    out = [max(0, int(w)) for w in weights[:n]]
+    if len(out) < n:
+        out.extend([1] * (n - len(out)))
+    total = sum(out)
+    if total <= 0:
+        return [1] * n
+    return out
 
 @dataclass
 class Door:
@@ -245,31 +290,23 @@ class Door:
 
 @dataclass
 class Room:
-    kind: Room
+    kind: RoomType
     gx: int
     gy: int
     w_cells: int = 1
     h_cells: int = 1
     pattern: List[RectSpec] = field(default_factory=list)
+    variant_salt: int = 0
     discovered: bool = False
     visited: bool = False
     cleared: bool = False
     doors: Dict[Direction, Door] = field(default_factory=dict)
-    floor_map: List[List[int]] = field(default_factory=list)
-    
+
+    wall_variant_index: int = 0
+    obs_variant_index: int = 0
+
     def __post_init__(self):
-        # build a random grid of floor tile indices right away
-        FLOOR, _, _, _ = _get_tiles()
-        if FLOOR:
-            tile_w = FLOOR[0].get_width()
-            tile_h = FLOOR[0].get_height()
-            room_rect = self.world_rect
-            cols = room_rect.width // tile_w + 1
-            rows = room_rect.height // tile_h + 1
-            self.floor_map = [
-                [random.randrange(len(FLOOR)) for _ in range(cols)]
-                for _ in range(rows)
-            ]
+        self.variant_salt = _stable_hash_int("room-tiles", self.kind, self.gx, self.gy, self.w_cells, self.h_cells)
             
     # --- Dimensions & transforms ---
     @property
@@ -373,58 +410,48 @@ class Room:
             if camera is None: return r
             x, y = camera.world_to_screen(r.x, r.y)
             return pg.Rect(int(x), int(y), int(r.w), int(r.h))
-                
+
         FLOOR, WALL, OBS, DOOR = _get_tiles()
-        
-        # draw floor using grid
-        if FLOOR and self.floor_map:
-            tile_w = FLOOR[0].get_width()
-            tile_h = FLOOR[0].get_height()
 
-            room_rect = self.world_rect
-            interior = inset_rect(room_rect, INSET + S.WALL_THICKNESS)
-
-            cols = interior.width // tile_w + 2
-            rows = interior.height // tile_h + 2
-
-            y = interior.top
-            row_i = 0
-            while y < interior.bottom:
-                x = interior.left
-                col_i = 0
-                while x < interior.right:
-                    idx = self.floor_map[row_i % len(self.floor_map)][col_i % len(self.floor_map[0])] if self.floor_map else 0
-                    tile = FLOOR[idx]
-                    rx, ry = (x, y) if camera is None else camera.world_to_screen(x, y)
-                    surf.blit(tile, (rx, ry))
-                    x += tile_w
-                    col_i += 1
-                y += tile_h
-                row_i += 1
+        # floor
+        interior = inset_rect(self.world_rect, INSET + S.WALL_THICKNESS)
+        FLOOR_WEIGHTS = getattr(S, "FLOOR_TILE_WEIGHTS", None)
+        if FLOOR:
+            _tile_rect_world_variants(
+                surf, FLOOR, interior, camera,
+                weights=FLOOR_WEIGHTS,
+                salt=self.variant_salt ^ 0xD1B54A32,
+            )
         else:
-            interior = inset_rect(self.world_rect, INSET + S.WALL_THICKNESS)
             pg.draw.rect(surf, S.FLOOR_COLOR, _apply(interior))
 
-       # walls
+        # walls
         walls = self.wall_rects()
 
-        # Outer ring (first 4 rects)
+        WALL_TILE_WEIGHTS = getattr(S, "WALL_TILE_WEIGHTS", None)
+        OBS_TILE_WEIGHTS  = getattr(S, "OBS_TILE_WEIGHTS", None)
+
         for wrect in walls[:4]:
             if WALL:
-                _tile_rect_world_variants(surf, WALL, wrect, camera)
+                _tile_rect_world_variants(
+                    surf, WALL, wrect, camera,
+                    weights=WALL_TILE_WEIGHTS,
+                    salt=self.variant_salt,
+                )
             else:
                 pg.draw.rect(surf, S.BORDER_COLOR, _apply(wrect))
 
-        # Interior obstacles/patterns (rest)
         for wrect in walls[4:]:
-            # if you want obstacles to use their own sheet; fall back to WALL if OBS empty
             imgs = OBS if OBS else WALL
             if imgs:
-                _tile_rect_world_variants(surf, imgs, wrect, camera)
+                _tile_rect_world_variants(
+                    surf, imgs, wrect, camera,
+                    weights=(OBS_TILE_WEIGHTS if imgs is OBS else WALL_TILE_WEIGHTS),
+                    salt=self.variant_salt ^ 0x9E3779B9,
+                )
             else:
                 pg.draw.rect(surf, S.OBSTACLES_COLOR, _apply(wrect))
 
-        # doors
         for d in self.doors.values():
             sr = _apply(d.rect)
             horizontal = (d.side in ("N","S"))
