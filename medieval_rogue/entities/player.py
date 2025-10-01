@@ -185,7 +185,11 @@ class Player:
         return False
 
     def apply_item(self, item):
+        prev_max = self.stats.hp
         item.apply(self)
+        new_max = self.stats.hp
+        if new_max > prev_max:
+            self.hp = min(self.hp + (new_max - prev_max), new_max)
         self.inventory.append(item.name)
 
     def draw(self, surf: pg.Surface, camera: Camera=None) -> None:

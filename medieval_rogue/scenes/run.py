@@ -370,6 +370,6 @@ class RunScene(Scene):
         if self.message:
             txt = self.app.font.render(self.message, True, (220,220,220))
             surf.blit(txt, (surf.get_width()//2 - txt.get_width()//2, surf.get_height()-48))
-        draw_hud(surf, self.app.font, self.player.hp, self.max_hp, int(self.score), self.floor_i)
+        draw_hud(surf, self.app.font, self.player.hp, self.player.stats.hp, int(self.score), self.floor_i)
         draw_minimap(surf, self.rooms, self.current_gp)
         self.camera.follow(self.player.x, self.player.y)
