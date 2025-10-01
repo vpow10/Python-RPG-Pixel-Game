@@ -323,6 +323,7 @@ class RunScene(Scene):
                 self.message = "Room cleared!"
                 for d in self.current_room.doors.values():
                     d.open = True
+                self.walls = self.current_room.wall_rects()
 
         # Time decay
         self.time_decay += dt
