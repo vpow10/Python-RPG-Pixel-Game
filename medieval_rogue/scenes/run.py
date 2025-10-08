@@ -60,6 +60,9 @@ class RunScene(Scene):
         self.item_picked = False
         self.boss_cleared = False
         self.score = 10
+        self.boss_history: list[str] = []
+        self.boss_pool: list[str] = list(BOSSES.keys())
+        random.shuffle(self.boss_pool)
         self.timescale = 1.0; self.hitstop_timer = 0.0; self.entry_freeze = 0.4; self.time_decay = 0.0
         self.sfx_player_hit = self.sounds["player_hit"]; self.sfx_player_hit.set_volume(0.1)
         self.sfx_arrow_shot = self.sounds["arrow_shot"]; self.sfx_arrow_shot.set_volume(0.1)
@@ -194,12 +197,31 @@ class RunScene(Scene):
         sx, sy = self._find_free_spot(preferred, self.walls, w=16, h=16)
         self.item_pickup = ItemPickup(sx, sy, item_id=name)
         self.message = f"Item: {name}"
+        
+    def _next_boss_id(self) -> str:
+        forced = getattr(S, "FORCE_BOSS_ID", None)
+        if forced in BOSSES.keys() and forced not in self.boss_history:
+            self.boss_history.append(forced)
+            return forced
+
+        for bid in self.boss_pool:
+            if bid not in self.boss_history:
+                self.boss_history.append(bid)
+                return bid
+            
+        # fallback 1    
+        remaining = [bid for bid in BOSSES.keys() if bid not in self.boss_history]
+        if remaining:
+            bid = random.choice(remaining)
+            self.boss_history.append(bid)
+            return bid
+        
+        # fallback 2 
+        return random.choice(list(BOSSES.keys()))
 
     def _spawn_boss_encounter(self) -> None:
         r = self.current_room.world_rect
-        boss_ids = list(BOSSES.keys())
-        forced = getattr(S, "FORCE_BOSS_ID", None)
-        boss_id = forced if (forced in boss_ids) else random.choice(boss_ids)
+        boss_id = self._next_boss_id()
         self.boss = create_boss(boss_id, r.centerx, r.centery)
         self.message = f"Boss: {self.boss.name}"
 
