@@ -228,11 +228,11 @@ class KnightCaptain(Enemy):      # telegraphed dash + lance projectiles while da
 @register_boss("ogre_warrior")
 class OgreWarrior(Enemy):
     def __init__(self, x, y, **opts):
-        super().__init__(x, y, hp=50, speed=150.0, sprite_id="ogre_warrior")
+        super().__init__(x, y, hp=30, speed=100.0, sprite_id="ogre_warrior")
         self.is_boss = True
         self.max_hp = self.hp
         self._state = "charge"
-        self._cd = 0.8
+        self._cd = 1.6
         self.vx = 0.0
         self.vy = 0.0
         self.dash_timer = 0.0
@@ -272,15 +272,27 @@ class OgreWarrior(Enemy):
 
         if self._state == "charge":
             self._set_anim("walk")
-            if self._cd <= 0.0:
-                d = (player_pos - self.center())
-                if d.length_squared() > 0:
-                    d = d.normalize()
-                    speed = 500.0
-                    self.vx, self.vy = d.x*speed, d.y*speed
-                    self._cd = 0.8
-                    self.dash_timer = 0.4
-                    self._state = "dash"
+
+            to_player = (player_pos - self.center())
+            if to_player.length_squared() > 1e-6:
+                dir = to_player.normalize()
+            else:
+                dir = pg.Vector2()
+
+            walk_speed = self.speed
+            dx, dy = dir.x * walk_speed * dt, dir.y * walk_speed * dt
+            nx, ny, _ = move_and_collide(
+                self.x, self.y, 24, 24, dx, dy,
+                walls, ox=-12, oy=-12, stop_on_collision=True
+            )
+            self.x, self.y = nx, ny
+
+            if self._cd <= 0.0 and dir.length_squared() > 0.0:
+                dash_speed = 500.0
+                self.vx, self.vy = dir.x * dash_speed, dir.y * dash_speed
+                self._cd = 1.6
+                self.dash_timer = 0.3
+                self._state = "dash"
 
         else:  # dash
             self._set_anim("dash")
@@ -294,7 +306,9 @@ class OgreWarrior(Enemy):
             self.dash_timer -= dt
             if collided or self.dash_timer <= 0:
                 self._state = "charge"
-                self._cd = 0.8
+                self._cd = 1.6
+                self.vx = 0.0
+                self.vy = 0.0
 
                 for i in range(12):
                     ang = i * (math.tau / 12)

@@ -30,18 +30,18 @@ class Victory(Scene):
                     if len(self.name) < 12:
                         self.name = (self.name + ch.upper()) 
                         
-        def draw(self, surf: pg.Surface) -> None:
-            w, h = surf.get_size()
-            title = self.app.font_big.render("Victory!", True, S.GREEN)
-            surf.blit(title, (w//2 - title.get_width()//2, 72))
-            
-            score = self.app.font.render(f"Score: {self.app.final_score}", True, S.WHITE)
-            surf.blit(score, (w//2 - score.get_width()//2, 180))
+    def draw(self, surf: pg.Surface) -> None:
+        w, h = surf.get_size()
+        title = self.app.font_big.render("Victory!", True, S.GREEN)
+        surf.blit(title, (w//2 - title.get_width()//2, 72))
+        
+        score = self.app.font.render(f"Score: {self.app.final_score}", True, S.WHITE)
+        surf.blit(score, (w//2 - score.get_width()//2, 180))
 
-            name = self.app.font.render(f"Name: {self.name}", True, S.YELLOW)
-            surf.blit(name, (w//2 - name.get_width()//2, 234))
+        name = self.app.font.render(f"Name: {self.name}", True, S.YELLOW)
+        surf.blit(name, (w//2 - name.get_width()//2, 234))
 
-            hint1 = self.app.font_small.render("Enter = save & menu", True, S.GRAY)
-            surf.blit(hint1, (w//2 - hint1.get_width()//2, 300))
-            hint2 = self.app.font_small.render("R = restart run • ESC = menu", True, S.GRAY)
-            surf.blit(hint2, (w//2 - hint2.get_width()//2, 340))
+        hint1 = self.app.font_small.render("Enter = save & menu", True, S.GRAY)
+        surf.blit(hint1, (w//2 - hint1.get_width()//2, 300))
+        hint2 = self.app.font_small.render("R = restart run • ESC = menu", True, S.GRAY)
+        surf.blit(hint2, (w//2 - hint2.get_width()//2, 340))

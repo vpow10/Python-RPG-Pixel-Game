@@ -224,7 +224,6 @@ class RunScene(Scene):
         r = self.current_room.world_rect
         boss_id = self._next_boss_id()
         self.boss = create_boss(boss_id, r.centerx, r.centery)
-        self.message = f"Boss: {self.boss.name}"
 
     def handle_event(self, e: pg.event.Event) -> None:
         if e.type == pg.KEYDOWN:
@@ -398,9 +397,11 @@ class RunScene(Scene):
             self.item_pickup.draw(surf, camera=self.camera)
         if self.boss:
             self.boss.draw(surf, camera=self.camera)
-            pg.draw.rect(surf, (60,40,40), (20, 28, w - 40, 6))
-            hpw = int((w-40) * max(0, self.boss.hp) / self.boss.max_hp)
-            pg.draw.rect(surf, (200,80,80), (20, 28, hpw, 6))
+            pg.draw.rect(surf, (60,40,40), (100, 100, w - 240, 6))
+            hpw = int((w-240) * max(0, self.boss.hp) / self.boss.max_hp)
+            pg.draw.rect(surf, (200,80,80), (100, 100, hpw, 6))
+            txt = self.app.font.render(f"{self.boss.name}", True, S.RED)
+            surf.blit(txt, (surf.get_width()//2 - txt.get_width()//2, 48))
         if self.current_room.kind == "boss" and self.room_cleared and not self.boss:
             hint = self.app.font.render("Press N to advance to next floor", True, (230,230,230))
             surf.blit(hint, (surf.get_width()//2 - hint.get_width()//2, surf.get_height()-72))
