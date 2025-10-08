@@ -330,12 +330,12 @@ class RunScene(Scene):
                 self.boss.hp -= p.damage
                 p.alive = False
                 if self.boss.hp <= 0:
-                    if self.floor_i >= S.FLOORS - 1:
-                        self.app.final_score = int(self.score)
-                        self.next_scene = "victory"
                     self.boss = None
                     self.score += S.SCORE_PER_BOSS
                     self.room_cleared = True
+                    if self.floor_i >= S.FLOORS - 1:
+                        self.app.final_score = int(self.score)
+                        self.next_scene = "victory"
                     self.message = "Boss defeated!"
                     try:
                         name = random.choice(ITEMS).name
