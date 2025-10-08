@@ -15,6 +15,6 @@ def draw_hearts(surf: pg.Surface, hp: int, max_hp: int, x: int=None, y: int=None
 def draw_hud(surf: pg.Surface, font, hp:int, max_hp: int, score: int, floor_i: int) -> None:
     draw_hearts(surf, hp, max_hp)
     txt = font.render(f"Score: {score}", True, S.WHITE)
-    surf.blit(txt, (surf.get_width()-txt.get_width()-6, S.VIEW_GUTTER // 4 + 144))
+    surf.blit(txt, (surf.get_width()-txt.get_width()-144, S.VIEW_GUTTER // 4))
     fr = font.render(f"F{floor_i+1}", True, S.GRAY)
     surf.blit(fr, (S.BORDER+2, S.VIEW_GUTTER // 4 + S.BORDER + 30))

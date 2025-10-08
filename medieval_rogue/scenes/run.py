@@ -168,7 +168,9 @@ class RunScene(Scene):
     def _advance_floor(self) -> None:
         self.floor_i += 1
         if self.floor_i >= S.FLOORS:
-            self.next_scene = "gameover"
+            self.app.final_score = int(self.score)
+            self.next_scene = "victory"
+            return
         self.floor = generate_floor(self.floor_i)
         self.rooms = self.floor.rooms
         self.current_gp = self.floor.start
@@ -176,7 +178,6 @@ class RunScene(Scene):
         self.room_cleared = False
         self.item_picked = False
         self.boss_cleared = False
-        self.message = f"Floor {self.floor_i + 1}"
 
     def _spawn_combat_wave(self) -> None:
         rng = random.Random(S.RANDOM_SEED)
@@ -330,6 +331,9 @@ class RunScene(Scene):
                 self.boss.hp -= p.damage
                 p.alive = False
                 if self.boss.hp <= 0:
+                    if self.floor_i >= S.FLOORS - 1:
+                        self.app.final_score = int(self.score)
+                        self.next_scene = "victory"
                     self.boss = None
                     self.score += S.SCORE_PER_BOSS
                     self.room_cleared = True
