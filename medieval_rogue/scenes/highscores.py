@@ -13,13 +13,13 @@ class HighScores(Scene):
     def draw(self, surf: pg.Surface) -> None:
         w, h = surf.get_size()
         title = self.app.font_big.render("High Scores", True, S.YELLOW)
-        surf.blit(title, (w//2 - title.get_width()//2, 20))
+        surf.blit(title, (w//2 - title.get_width()//2, 50))
         scores = load_highscores()
         if not scores:
             msg = self.app.font.render("No scores yet!", True, S.GRAY)
             surf.blit(msg, (w//2 - msg.get_width()//2, h//2))
         else:
             for i, s in enumerate(scores[:10], start=1):
-                row = f"{i:2d}. {s['name']:<12}  {s['score']}"
+                row = f"{i:2d}. {s['name']:<16}  {s['score']}"
                 txt = self.app.font_small.render(row, True, S.WHITE if i <= 3 else S.GRAY)
-                surf.blit(txt, (w//2 - 50, 40 + i * 12))
+                surf.blit(txt, (w//2 - 150, 120 + i * 36))

@@ -15,7 +15,7 @@ class GameOver(Scene):
     def handle_event(self, e: pg.event.Event) -> None:
         if e.type == pg.KEYDOWN:
             if not self.saved and e.unicode and e.key not in (pg.K_RETURN, pg.K_ESCAPE, pg.K_BACKSPACE):
-                if len(self.name) < 12 and e.unicode.isprintable():
+                if len(self.name) < 16 and e.unicode.isprintable():
                     self.name += e.unicode.upper()
             if e.key == pg.K_BACKSPACE and len(self.name) > 0:
                 self.name = self.name[:-1]
@@ -30,8 +30,8 @@ class GameOver(Scene):
     def draw(self, surf: pg.Surface) -> None:
         w, h = surf.get_size()
         title = self.app.font_big.render("Game Over", True, S.RED)
-        surf.blit(title, (w//2 - title.get_width()//2, 24))
+        surf.blit(title, (w//2 - title.get_width()//2, 72))
         score = self.app.font.render(f"Score: {self.app.final_score}", True, S.WHITE)
-        surf.blit(score, (w//2 - score.get_width()//2, 60))
+        surf.blit(score, (w//2 - score.get_width()//2, 180))
         name = self.app.font.render(f"Name: {self.name}", True, S.YELLOW)
-        surf.blit(name, (w//2 - name.get_width()//2, 78))
+        surf.blit(name, (w//2 - name.get_width()//2, 234))

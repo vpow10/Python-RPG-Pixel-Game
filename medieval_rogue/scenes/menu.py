@@ -28,8 +28,8 @@ class Menu(Scene):
     def draw(self, surf: pg.Surface) -> None:
         w, h = surf.get_size()
         title = self.app.font_big.render("Medieval Rogue", True, S.YELLOW)
-        surf.blit(title, (w//2 - title.get_width()//2, 30))
+        surf.blit(title, (w//2 - title.get_width()//2, 50))
         for i, (label, _) in enumerate(self.options):
             color = S.WHITE if i == self.index else S.GRAY
             txt = self.app.font.render(label, True, color)
-            surf.blit(txt, (w//2 - txt.get_width()//2, 80 + i * 18))
+            surf.blit(txt, (w//2 - txt.get_width()//2, 120 + i * 54))

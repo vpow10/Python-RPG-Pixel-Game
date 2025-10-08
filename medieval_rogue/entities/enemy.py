@@ -1,80 +1,263 @@
 from __future__ import annotations
-import pygame as pg, random
+import pygame as pg, random, math
 from dataclasses import dataclass
 from medieval_rogue.entities.projectile import Projectile
 from medieval_rogue.entities.utilities import move_and_collide
+from medieval_rogue.camera import Camera
+from medieval_rogue.entities.base import Entity
+from medieval_rogue.entities.enemy_registry import register_enemy
+from medieval_rogue import settings as S
+from assets.sprite_manager import AnimatedSprite, load_strip
 
 
 @dataclass
-class Enemy:
-    x: float; y: float; hp: int; speed: float
+class Enemy(Entity):
+    hp: int = 1
+    speed: float = 40.0
     touch_damage: int = 1
-    alive: bool = True
+    sprite: AnimatedSprite | None = None
+    
+    def muzzle_pos(self, dirv: pg.Vector2, height: float = 0.5, forward: float = 12.0) -> pg.Vector2:
+        """
+        Returns a good-looking projectile origin:
+        - 'height' is 0..1 from feet(0) to head(1) for bottom-anchored hitboxes.
+        - 'forward' pushes outward along dirv so the shot doesn't clip the body.
+        """
+        r = self.rect()
+        base = pg.Vector2(r.centerx, r.bottom - r.h * height)
 
-    def rect(self) -> pg.Rect: return pg.Rect(int(self.x-5), int(self.y-5), 10, 10)
+        if dirv.length_squared() > 0.0:
+            n = dirv.normalize()
+            base.x += n.x * forward
+            base.y += n.y * forward
+        return base
 
-    def center(self) -> pg.Vector2: return pg.Vector2(self.x, self.y)
+    def __post_init__(self):
+        try:
+            frames = load_strip(['assets','sprites','enemies', f'{self.sprite_id}_walk.png'], 64, 64)
+            self.sprite = AnimatedSprite(frames, fps=6, loop=True, anchor='bottom')
+        except Exception:
+            self.sprite = None
 
-    def update(self, dt:float, player_pos: pg.Vector2, projectiles: list[Projectile], walls: list[pg.Rect]) -> None: ...
+    def rect(self):
+        w, h = S.ENEMY_HITBOX
+        return pg.Rect(int(self.x-w//2), int(self.y-h), w, h)
 
-    def draw(self, surf: pg.Surface) -> None: pg.draw.rect(surf, (160,70,70), self.rect())
+    def update(self, dt, player_pos, walls, projectiles, **kwargs):
+        pass
 
-
+@register_enemy("slime", sprite_id="slime")
 class Slime(Enemy):
-    def __init__(self, x, y): super().__init__(x, y, hp=2, speed=40.0)
+    def __init__(self, x, y, **opts):
+        super().__init__(x, y, sprite_id="slime", hp=3, speed=90.0)
+        frames = load_strip(['assets','sprites','enemies', f'{self.sprite_id}_walk.png'], 32, 32)
+        self.sprite = AnimatedSprite(frames, fps=6, loop=True, anchor='bottom')
+        
+    def rect(self):
+        w, h = S.SMALL_ENEMY_HITBOX
+        return pg.Rect(int(self.x-w//2), int(self.y-h), w, h)
 
-    def draw(self, surf: pg.Surface) -> None: pg.draw.rect(surf, (90,200,120), self.rect())
+    def draw(self, surf, camera: Camera=None):
+        if self.sprite:
+            self.sprite.draw(surf, self.x, self.y, camera=camera)
+        else:
+            r = self.rect();
+            if camera is not None: sx, sy = camera.world_to_screen(r.x, r.y); r = pg.Rect(sx, sy, r.w, r.h)
+            pg.draw.ellipse(surf, (100,200,100), r)
 
-    def update(self, dt, player_pos, projectiles, walls):
+    def update(self, dt, player_pos, walls, projectiles):
         v = player_pos - self.center()
+        w, h = S.ENEMY_HITBOX
+        ox = -w//2
+        oy = -h
         if v.length_squared() > 1:
             step = v.normalize() * self.speed * dt
-            nx, ny, _ = move_and_collide(self.x, self.y, 10, 10, step.x, step.y, walls, ox=-5, oy=-5, stop_on_collision=False)
+            nx, ny, collided = move_and_collide(self.x, self.y, w, h, step.x, step.y, walls, ox=ox, oy=oy, stop_on_collision=False)
+            if collided:
+                # try axis-aligned fallbacks and pick the one that moves further
+                nx_h, ny_h, _ = move_and_collide(self.x, self.y, w, h, step.x, 0, walls, ox=ox, oy=oy, stop_on_collision=False)
+                nx_v, ny_v, _ = move_and_collide(self.x, self.y, w, h, 0, step.y, walls, ox=ox, oy=oy, stop_on_collision=False)
+                dist_h = (nx_h - self.x)**2 + (ny_h - self.y)**2
+                dist_v = (nx_v - self.x)**2 + (ny_v - self.y)**2
+                if dist_h >= dist_v and dist_h > 0:
+                    nx, ny = nx_h, ny_h
+                elif dist_v > 0:
+                    nx, ny = nx_v, ny_v
+                else:
+                    # if both blocked, try small random sidestep
+                    ang = random.uniform(0, math.tau)
+                    sidex = math.cos(ang) * (self.speed * dt * 0.5)
+                    sidey = math.sin(ang) * (self.speed * dt * 0.5)
+                    nx, ny, _ = move_and_collide(self.x, self.y, w, h, sidex, sidey, walls, ox=ox, oy=oy, stop_on_collision=False)
             self.x, self.y = nx, ny
+        if self.sprite:
+            self.sprite.update(dt)
 
-
+@register_enemy("bat", sprite_id="bat")
 class Bat(Enemy):
-    def __init__(self, x, y): super().__init__(x, y, hp=1, speed=80.0)
+    def __init__(self, x, y, **opts):
+        super().__init__(x, y, hp=1, sprite_id="bat", speed=180.0)
+        frames = load_strip(['assets','sprites','enemies', f'{self.sprite_id}_walk.png'], 32, 32)
+        self.sprite = AnimatedSprite(frames, fps=6, loop=True, anchor='bottom')
+        
+    def rect(self):
+        w, h = S.SMALL_ENEMY_HITBOX
+        return pg.Rect(int(self.x-w//2), int(self.y-h), w, h)
 
-    def draw(self, surf: pg.Surface) -> None: pg.draw.rect(surf, (120,120,220), self.rect())
+    def draw(self, surf, camera: Camera=None):
+        if hasattr(self, 'sprite') and self.sprite:
+            self.sprite.draw(surf, self.x, self.y, camera=camera)
+        else:
+            r = self.rect();
+            if camera is not None: sx, sy = camera.world_to_screen(r.x, r.y); r = pg.Rect(sx, sy, r.w, r.h)
+            pg.draw.rect(surf, (120,120,220), r)
 
-    def update(self, dt, player_pos, projectiles, walls):
+    def update(self, dt, player_pos, walls, projectiles):
         v = player_pos - self.center()
+        w, h = S.ENEMY_HITBOX
+        ox = -w//2
+        oy = -h
         if v.length_squared() > 1:
-            jitter = pg.Vector2(random.uniform(-0.5,0.5), random.uniform(-0.5,0.5))*0.3
+            jitter = pg.Vector2(random.uniform(-0.5,0.5), random.uniform(-0.5,0.5))*0.5
             step = (v.normalize() + jitter).normalize() * self.speed * dt
-            nx, ny, _ = move_and_collide(self.x, self.y, 10, 10, step.x, step.y, walls, ox=-5, oy=-5, stop_on_collision=False)
+            nx, ny, collided = move_and_collide(self.x, self.y, w, h, step.x, step.y, walls, ox=ox, oy=oy, stop_on_collision=False)
+            if collided:
+                # sliding fallback (horizontal / vertical)
+                nx_h, ny_h, _ = move_and_collide(self.x, self.y, w, h, step.x, 0, walls, ox=ox, oy=oy, stop_on_collision=False)
+                nx_v, ny_v, _ = move_and_collide(self.x, self.y, w, h, 0, step.y, walls, ox=ox, oy=oy, stop_on_collision=False)
+                if (nx_h - self.x)**2 + (ny_h - self.y)**2 >= (nx_v - self.x)**2 + (ny_v - self.y)**2:
+                    nx, ny = nx_h, ny_h
+                else:
+                    nx, ny = nx_v, ny_v
             self.x, self.y = nx, ny
+        if self.sprite:
+            self.sprite.update(dt)
 
-
+@register_enemy("skeleton", sprite_id="skeleton")
 class Skeleton(Enemy):
-    def __init__(self, x, y):
-        super().__init__(x, y, hp=3, speed=50.0)
+    def __init__(self, x, y, **opts):
+        super().__init__(x, y, hp=3, sprite_id="skeleton", speed=120.0)
+        FRAME_W, FRAME_H = 64, 64
+
+        def _safe_load_strip(path_parts, frame_w: int, frame_h: int) -> list[pg.Surface]:
+            try:
+                frames = load_strip(path_parts, frame_w, frame_h)
+                if not frames:
+                    raise RuntimeError("No frames returned")
+                return frames
+            except Exception:
+                surf = pg.Surface((frame_w, frame_h), pg.SRCALPHA)
+                surf.fill((200, 50, 50, 255))
+                pg.draw.line(surf, (255, 255, 255), (2, 2), (frame_w-3, frame_h-3), 2)
+                pg.draw.line(surf, (255, 255, 255), (frame_w-3, 2), (2, frame_h-3), 2)
+                return [surf]
+
+        walk_frames = _safe_load_strip(['assets','sprites','enemies','skeleton_walk.png'], FRAME_W, FRAME_H)
+        shoot_frames = _safe_load_strip(['assets','sprites','enemies','skeleton_shoot.png'], FRAME_W, FRAME_H)
+        walk_shoot_frames = _safe_load_strip(['assets','sprites','enemies','skeleton_walk_shoot.png'], FRAME_W, FRAME_H)
+
+        self.anims = {
+            "walk":       AnimatedSprite(walk_frames, fps=6, loop=True, anchor='bottom'),
+            "shoot":      AnimatedSprite(shoot_frames, fps=6, loop=True, anchor='bottom'),
+            "walk_shoot": AnimatedSprite(walk_shoot_frames, fps=6, loop=True, anchor='bottom')
+        }
+        self.sprite = self.anims["walk"]
+
         self.shoot_cd = random.uniform(0.5, 1.2)
+        self.shoot_timer = 0.0
+        self.facing_left = False
+        
+        self.shoot_anim = self.anims["shoot"]
+        self.walk_shoot_anim = self.anims.get("walk_shoot", self.shoot_anim)
 
-    def draw(self, surf: pg.Surface) -> None: pg.draw.rect(surf, (220,220,220), self.rect())
+        def _anim_duration(anim: AnimatedSprite, fallback: float = 0.35) -> float:
+            try:
+                n = max(1, len(anim.frames))
+                fps = max(1e-3, getattr(anim, "fps", 6.0))
+                return n / fps
+            except Exception:
+                return fallback
 
-    def update(self, dt, player_pos, projectiles, walls):
+        self.shoot_dur = _anim_duration(self.shoot_anim, 0.35)
+        self.walk_shoot_dur = _anim_duration(self.walk_shoot_anim, 0.35)
+
+    def _set_anim(self, name: str):
+        nxt = self.anims.get(name)
+        if nxt and self.sprite is not nxt:
+            nxt.paused = False; nxt.idx = 0; nxt.t = 0.0
+            self.sprite = nxt
+
+    def draw(self, surf, camera: Camera=None):
+        if hasattr(self, 'sprite') and self.sprite:
+            self.sprite.draw(surf, self.x, self.y, camera=camera, flip_x=self.facing_left)
+        else:
+            r = self.rect()
+            if camera is not None:
+                sx, sy = camera.world_to_screen(r.x, r.y)
+                r = pg.Rect(sx, sy, r.w, r.h)
+            pg.draw.rect(surf, (220,220,220), r)
+
+    def update(self, dt, player_pos, walls, projectiles):
         v = player_pos - self.center()
+        w, h = S.ENEMY_HITBOX
+        ox = -w//2
+        oy = -h
         dist = v.length()
+        step = pg.Vector2(0,0)
 
-        step = pg.Vector2(0, 0)
         if dist > 1:
             n = v.normalize()
-            if dist > 80:
+            if dist > 420:
                 step = n * (self.speed * dt)
-            elif dist < 60:
+            elif dist < 300:
                 step = -n * (self.speed * dt)
 
-        nx, ny, _ = move_and_collide(self.x, self.y, 10, 10, step.x, step.y, walls, ox=-5, oy=-5, stop_on_collision=False)
+        nx, ny, collided = move_and_collide(self.x, self.y, w, h, step.x, step.y, walls, ox=ox, oy=oy, stop_on_collision=False)
+        if collided:
+            nx_h, ny_h, _ = move_and_collide(self.x, self.y, w, h, step.x, 0, walls, ox=ox, oy=oy, stop_on_collision=False)
+            nx_v, ny_v, _ = move_and_collide(self.x, self.y, w, h, 0, step.y, walls, ox=ox, oy=oy, stop_on_collision=False)
+            if (nx_h - self.x)**2 + (ny_h - self.y)**2 >= (nx_v - self.x)**2 + (ny_v - self.y)**2:
+                nx, ny = nx_h, ny_h
+            else:
+                nx, ny = nx_v, ny_v
         self.x, self.y = nx, ny
 
+        # Facing
+        self.facing_left = player_pos.x < self.x
+
+        # Shooting
         self.shoot_cd -= dt
+        shooting = False
         if self.shoot_cd <= 0 and dist > 1:
             self.shoot_cd = 1.2
             d = v.normalize()
-            speed = 120.0
-            projectiles.append(Projectile(self.x, self.y, d.x * speed, d.y * speed, 2, 1, False))
+            speed = 360.0
 
+            origin = self.muzzle_pos(d, height=0.55, forward=14.0)
+            projectiles.append(Projectile(origin.x, origin.y, d.x*speed, d.y*speed, 6, 1, False, sprite_id=None))
 
-ENEMY_TYPES = [Slime, Bat, Skeleton]
+            is_moving = step.length_squared() > 0
+            use = self.walk_shoot_anim if is_moving and "walk_shoot" in self.anims else self.shoot_anim
+            self._set_anim("walk_shoot" if is_moving and "walk_shoot" in self.anims else "shoot")
+            use.loop = False
+            use.idx = 0
+            use.t = 0.0
+            self.shoot_timer = self.walk_shoot_dur if is_moving and "walk_shoot" in self.anims else self.shoot_dur
+            shooting = True
+
+        if self.shoot_timer > 0:
+            self.shoot_timer -= dt
+            shooting = True
+        else:
+            self.anims["walk"].loop = True
+            if "walk_shoot" in self.anims:
+                self.anims["walk_shoot"].loop = True
+
+        is_moving = step.length_squared() > 0
+        if shooting:
+            pass
+        else:
+            self._set_anim("walk" if is_moving else "walk")
+
+        if self.sprite:
+            self.sprite.update(dt)

@@ -1,23 +1,31 @@
 # 🏹 Medieval Rogue
 
-A pixel-style roguelite inspired by *The Binding of Isaac*, but with a medieval theme.  
+A pixel-style roguelite inspired by *The Binding of Isaac*, but with a medieval dark-fantasy theme.  
 Fight through randomly generated dungeon rooms, collect items, defeat bosses, and try to get the highest score!
 
-> ⚠️ Windows users: a ready-to-run `MedievalRogue.exe` can be found in the `dist` folder (see the **Windows executable** section below).
+> ⚠️ Windows users: a ready-to-run `launcher.exe` is available in the repository.
 
 ---
 
 ## 🎮 Features
-- Procedurally generated dungeon floors (currently 3 floors).
-- One playable class: **Archer** (shoot arrows).
-- 3 enemy types + 3 bosses.
-- 5 items to boost your stats.
-- Scoring system:
-  - \+ points for enemies, rooms, bosses.
-  - -1 point per second (time matters!).
-- Room obstacles and collision system.
 
-Version **1.0.0** is the first fully playable release 🚀
+- **Procedurally generated dungeon floors** (currently 3 floors, more patterns).
+- **Playable classes:** Archer, Rogue, Mage.
+- **Sprites & visual overhaul**:
+  - Hand-made + AI-assisted pixel art sprites for floors, walls, enemies, bosses, doors, and items.
+- **Lighting & atmosphere**:
+  - Torches with flickering light.
+  - Smooth edge-fade from room interior to screen borders.
+- **Expanded content**:
+  - More room patterns.
+  - More items that affect stats and health.
+  - 3 enemy types + 4 unique bosses.
+- **Scoring system**:
+  - \+ points for enemies, rooms, bosses.
+  - −1 point per second (time matters!).
+- **Performance improvements** for smoother gameplay.
+
+Version **2.0.0** is the new major update 🚀
 
 ---
 
@@ -45,37 +53,40 @@ pip install -r requirements.txt
 ```bash
 python -m medieval_rogue
 ```
-or simply 
+or simply:
 ```bash
 python launcher.py
 ```
 
-The game runs in base resolution **320×180**, scaled to your window/screen.
+The game runs in base resolution **1280×736**, scaled to your window/screen.
 
----
-
-## 📦 Windows executable (ready-to-run)
-
-A ready-to-run Windows executable is provided in the `dist` folder after building:
-
-- Path (after build): `dist/MedievalRogue/MedievalRogue.exe`
-- To run: double-click `MedievalRogue.exe` or open a command prompt in the `dist/MedievalRogue` folder and run:
-```cmd
-.\MedievalRogue.exe
-```
 ---
 
 ## 🕹 Controls
 - **WASD** — Move  
 - **Mouse** — Aim  
 - **Left Click** — Shoot  
-- **E** — Pick up item  
-- **Space** — Advance to next room after clear  
+- **N** — Advance to next floor after boss defeat  
 - **Esc** — Exit to menu  
 
 ---
 
 ## 📖 Version Log
+
+### [2.0.0] — 2025-10-01
+- Major visual update:
+  - Sprites for tiles, walls, doors, obstacles, enemies, and bosses.
+  - All pixel art made by me with help of AI.  
+- New lighting system with torches and edge fade.
+- More room patterns and obstacles.
+- Items updated.
+- Boss flow improved: prompt to press **N** after boss defeat.
+- General performance improvements.
+
+### [1.0.1] — 2025-08-24
+- Features:
+  - Add sfx sounds for shooting and being hit.
+  - Add `.exe` build for Windows and launcher.py shortcut.
 
 ### [1.0.0] — 2025-08-23
 - Initial fully playable version 🎉
@@ -96,10 +107,12 @@ A ready-to-run Windows executable is provided in the `dist` folder after buildin
 - Polished menus, sounds, and effects.
 
 *(This log will always keep the last 5 versions.)*
-- 1.0.1 Version:
-  - Add sfx sounds for shooting and being hit
-  - Add .exe file for Windows and simplify launching via launcher.py
+
+---
+
+#### 🎨 Sprite Credits
+All sprites were made by me, with help of AI (ChatGPT image generation).
 
 #### 🔊 Sound Credits
-- arrow_shot.wav by Lydmakeren -- https://freesound.org/s/511490/ -- License: Creative Commons 0
-- player_hit.wav by MrFossy -- https://freesound.org/s/547204/ -- License: Creative Commons 0
+- arrow_shot.wav by Lydmakeren — [freesound.org/s/511490](https://freesound.org/s/511490/) — License: CC0  
+- player_hit.wav by MrFossy — [freesound.org/s/547204](https://freesound.org/s/547204/) — License: CC0

@@ -1,108 +1,258 @@
 from __future__ import annotations
-import pygame as pg
+import pygame as pg, random, math
 from medieval_rogue import settings as S
 from medieval_rogue.scene_manager import Scene
-from medieval_rogue.entities.player import Player
-from medieval_rogue.entities.boss import Boss, BOSSES
+from medieval_rogue.entities.player import Player, PlayerStats
+from medieval_rogue.entities.enemy_registry import BOSSES
 from medieval_rogue.entities.projectile import Projectile
-from medieval_rogue.entities.enemy import Enemy, ENEMY_TYPES
-from medieval_rogue.dungeon.generation import generate_floor, spawn_enemies_for_room
-from medieval_rogue.dungeon.room import Room
-from medieval_rogue.items.basic_items import Item, ITEMS
+from medieval_rogue.entities.enemy_registry import create_boss, spawn_from_pattern, SPAWN_PATTERNS, pick_spawn_pattern
+from medieval_rogue.dungeon.generation import generate_floor
+from medieval_rogue.dungeon.room import Room, Direction
+from medieval_rogue.items.basic_items import get_item_by_name, ITEMS
 from medieval_rogue.ui.hud import draw_hud
+from medieval_rogue.ui.minimap import draw_minimap
 from assets.sound_manager import load_sounds
+from medieval_rogue.camera import Camera
+from medieval_rogue.entities.pickups import ItemPickup
+from medieval_rogue.ui.edge_fade import draw_edge_fade
+from medieval_rogue.ui.lighting import compute_torches_for_room, update_torches, draw_torches, apply_lighting
 
 
 class RunScene(Scene):
-    def __init__(self, app) -> None:
-        pg.init()
-        pg.mixer.init()
-        self.sounds = load_sounds()
+    def __init__(self, app):
         super().__init__(app)
-        stats = getattr(self.app, "chosen_stats", None) or {}
-        self.player = Player(160, 90, **{k:v for k,v in stats.items() if k != "name"})
+        self.camera = Camera()
+        self.sounds = load_sounds()
+        # create player from chosen class if the character select set it on the app.
+        pc = getattr(self.app, "chosen_class", None)
+        if pc is not None:
+            stats = PlayerStats(
+                hp = pc.hp,
+                speed = pc.speed,
+                firerate = pc.firerate,
+                proj_speed = pc.proj_speed,
+                damage = pc.damage,
+            )
+        else:
+            stats = PlayerStats()
+        self.player = Player(S.BASE_W//2, S.BASE_H//2, stats=stats, cls=pc if pc else "archer")
+        self.player.sfx_shot = self.sounds.get("arrow_shot")
         self.projectiles: list[Projectile] = []
-        self.enemies: list[Enemy] = []
         self.e_projectiles: list[Projectile] = []
-        self.floor_i: int = 0
-        self.room_i: int = 0
-        self.rooms: list[Room] = generate_floor(self.floor_i).rooms
-        self.room: Room = self.rooms[self.room_i]
-        self.enemies.clear(); self.e_projectiles.clear()
-        self._enter_room(self.room)
-        self.boss: Boss = None
-        self.max_hp: int = self.player.hp * 2
-        self.message: str = ""
-        self.room_cleared: bool = False
-        self.item_available: Item | None = None
-        self.score: int = 10
-        self.time_decay: float = 0.0
-        self.timescale: float = 1.0
-        self.hitstop_timer: float = 0.0
-        self.entry_freeze: float = 0.5
-        self.sfx_player_hit = self.sounds["player_hit"]
-        self.sfx_player_hit.set_volume(0.2)
-        # self.sfx_kill = pg.mixer.Sound("assets/sfx/kill.wav")     # in future
-
-    def _enter_room(self, room: Room):
-        self.room = room
-
-        import random
-        self.enemies.clear()
-        self.e_projectiles.clear()
-        self.projectiles.clear()
-        self.item_available = None
+        self.enemies = []
         self.boss = None
+        self.torches = []
+        self.floor = generate_floor(0)
+        self.rooms: dict[tuple[int,int], Room] = self.floor.rooms
+        self.current_gp = self.floor.start
+        self.current_room: Room = self.rooms[self.current_gp]
+        self.current_room.visited = True
+        for _, r in self._neighbors_of(self.current_gp).items():
+            if r: r.discovered = True
+        if getattr(S, "FORCE_BOSS_IN_START_ROOM", False):
+            self.current_room.kind = "boss"
+            self.boss_cleared = False
+            self.message = ""
+        self.floor_i = 0; self.room_i = 0
+        self.max_hp = self.player.stats.hp
+        self.message = ""; self.room_cleared = False
+        self.item_pickup: ItemPickup | None = None
+        self.item_picked = False
+        self.boss_cleared = False
+        self.score = 10
+        self.boss_history: list[str] = []
+        self.boss_pool: list[str] = list(BOSSES.keys())
+        random.shuffle(self.boss_pool)
+        self.timescale = 1.0; self.hitstop_timer = 0.0; self.entry_freeze = 0.4; self.time_decay = 0.0
+        self.sfx_player_hit = self.sounds["player_hit"]; self.sfx_player_hit.set_volume(0.1)
+        self.sfx_arrow_shot = self.sounds["arrow_shot"]; self.sfx_arrow_shot.set_volume(0.1)
+        self._enter_room(self.current_gp, from_dir=None)
 
+    def _neighbors_of(self, gp):
+        gx, gy = gp
+        return {"N": self.rooms.get((gx, gy-1)), "S": self.rooms.get((gx, gy+1)), "W": self.rooms.get((gx-1, gy)), "E": self.rooms.get((gx+1, gy))}
+
+    def _enter_room(self, gp, from_dir: Direction | None):
+        self.current_gp = gp
+        self.current_room = self.rooms[gp]
+        self.current_room.visited = True
+        nbrs = self._neighbors_of(gp)
+        for _, r in nbrs.items():
+            if r: r.discovered = True
+        self.current_room.compute_doors(nbrs)
+
+        self.walls = self.current_room.wall_rects()
+        self.torches = compute_torches_for_room(self.current_room)
+        self.enemies.clear()
+        self.projectiles.clear()
+        self.e_projectiles.clear()
+        self.boss = None
+        self.item_available = None
+        
+        self._place_player_on_entry(from_dir)
+        self.camera.center_on(self.player.x, self.player.y)
+        self.camera.clamp_to_room(self.current_room.world_rect)
+
+        if self.current_room.kind == "combat":
+            if not self.current_room.cleared:
+                self._spawn_combat_wave()
+            else:
+                self.message = ""
+        elif self.current_room.kind == "item":
+            if not self.item_picked:
+                self._spawn_item()
+                self.item_picked = True
+        elif self.current_room.kind == "boss":
+            if not self.boss_cleared:
+                self._spawn_boss_encounter()
+                self.boss_cleared = True
+
+    def _place_player_on_entry(self, from_dir: Direction | None) -> None:
+        r = self.current_room.world_rect
+        M = 16  # small safety margin so we never clip walls
+        safe = pg.Rect(
+            r.left   + S.ROOM_INSET + S.WALL_THICKNESS + M,
+            r.top    + S.ROOM_INSET + S.WALL_THICKNESS + M,
+            r.width  - 2*(S.ROOM_INSET + S.WALL_THICKNESS + M),
+            r.height - 2*(S.ROOM_INSET + S.WALL_THICKNESS + M),
+        )
+
+        if from_dir == "N":      self.player.x, self.player.y = safe.centerx, safe.top + 40
+        elif from_dir == "S":    self.player.x, self.player.y = safe.centerx, safe.bottom - 40
+        elif from_dir == "W":    self.player.x, self.player.y = safe.left + 40, safe.centery
+        elif from_dir == "E":    self.player.x, self.player.y = safe.right - 40, safe.centery
+        else:                    self.player.x, self.player.y = safe.centerx, safe.centery
+
+        self.player.set_position(self.player.x, self.player.y)
+
+    def _find_free_spot(self, preferred: tuple[float, float], walls: list[pg.Rect], w: int = 16, h: int = 16,
+                        max_radius: int = 200, step: int = 8) -> tuple[float, float]:
+        """
+        Find a free spot near `preferred` (world coords) where a w x h rect does not collide with walls
+        and stays inside the current room bounds. Returns (x,y). Uses a spiral sample.
+        """
+        px, py = float(preferred[0]), float(preferred[1])
+        room_rect = self.current_room.world_rect
+
+        def collides(x: float, y: float) -> bool:
+            r = pg.Rect(int(x - w // 2), int(y - h // 2), w, h)
+            # must be inside room (respect border)
+            if r.left < room_rect.left + S.BORDER or r.right > room_rect.right - S.BORDER or \
+               r.top < room_rect.top + S.BORDER or r.bottom > room_rect.bottom - S.BORDER:
+                return True
+            for wr in walls:
+                if r.colliderect(wr):
+                    return True
+            return False
+
+        # Try preferred
+        if not collides(px, py):
+            return px, py
+
+        # Spiral search
+        for radius in range(step, max_radius + 1, step):
+            # sample 24 angles per radius
+            for a_deg in range(0, 360, 15):
+                ang = math.radians(a_deg)
+                x = px + math.cos(ang) * radius
+                y = py + math.sin(ang) * radius
+                if not collides(x, y):
+                    return float(x), float(y)
+
+        # fallback: nearest room-center clamped inside room
+        cx, cy = room_rect.centerx, room_rect.centery
+        cx = max(room_rect.left + S.BORDER + w//2, min(cx, room_rect.right - S.BORDER - w//2))
+        cy = max(room_rect.top + S.BORDER + h//2, min(cy, room_rect.bottom - S.BORDER - h//2))
+        return float(cx), float(cy)
+
+    def _advance_floor(self) -> None:
+        self.floor_i += 1
+        if self.floor_i >= S.FLOORS:
+            self.app.final_score = int(self.score)
+            self.next_scene = "victory"
+            return
+        self.floor = generate_floor(self.floor_i)
+        self.rooms = self.floor.rooms
+        self.current_gp = self.floor.start
+        self._enter_room(self.current_gp, from_dir=None)
         self.room_cleared = False
-        self.message = ""
+        self.item_picked = False
+        self.boss_cleared = False
 
-        if room.type == "combat":
-            rng = random.Random()
-            for cls, (x, y) in spawn_enemies_for_room(rng, self.player):
-                self.enemies.append(cls(x, y))
-        elif room.type == "item":
-            self.item_available = random.choice(ITEMS)
-            self.message = f"Item: {self.item_available.name} - {self.item_available.desc} (press E)"
-        elif room.type == "boss":
-            BossCls = BOSSES[min(self.floor_i, len(BOSSES)-1)]
-            self.boss = BossCls(160, 90)
-            self.message = f"Boss: {self.boss.name}"
+    def _spawn_combat_wave(self) -> None:
+        rng = random.Random(S.RANDOM_SEED)
+        r = self.current_room.world_rect
+        name = pick_spawn_pattern(self.current_room.w_cells, self.current_room.h_cells, rng)
+        spawned = spawn_from_pattern(
+            name, r,
+            avoid_pos=(self.player.x, self.player.y),
+            avoid_radius=getattr(S, "SAFE_RADIUS", 160)
+        )
+        self.enemies.extend(spawned)
+        self.message = f"Enemies: {len(spawned)}"
 
-        self.entry_freeze = 0.5
+    def _spawn_item(self) -> None:
+        r = self.current_room.world_rect
+        name = random.choice(ITEMS).name
+        preferred = (r.centerx, r.centery)
+        sx, sy = self._find_free_spot(preferred, self.walls, w=16, h=16)
+        self.item_pickup = ItemPickup(sx, sy, item_id=name)
+        self.message = f"Item: {name}"
+        
+    def _next_boss_id(self) -> str:
+        forced = getattr(S, "FORCE_BOSS_ID", None)
+        if forced in BOSSES.keys() and forced not in self.boss_history:
+            self.boss_history.append(forced)
+            return forced
+
+        for bid in self.boss_pool:
+            if bid not in self.boss_history:
+                self.boss_history.append(bid)
+                return bid
+            
+        # fallback 1    
+        remaining = [bid for bid in BOSSES.keys() if bid not in self.boss_history]
+        if remaining:
+            bid = random.choice(remaining)
+            self.boss_history.append(bid)
+            return bid
+        
+        # fallback 2 
+        return random.choice(list(BOSSES.keys()))
+
+    def _spawn_boss_encounter(self) -> None:
+        r = self.current_room.world_rect
+        boss_id = self._next_boss_id()
+        self.boss = create_boss(boss_id, r.centerx, r.centery)
 
     def handle_event(self, e: pg.event.Event) -> None:
-        if e.type == pg.KEYDOWN and e.key == pg.K_ESCAPE:
-            self.next_scene = "menu"
-        if e.type == pg.KEYDOWN and e.key == pg.K_e and self.item_available:
-            self.item_available.apply(self.player)
-            self.max_hp = max(self.max_hp, self.player.hp)
-            self.item_available = None
-            self.room_cleared = True
-            self.message = "Item taken! Press Space for next room."
-        if e.type == pg.KEYDOWN and e.key == pg.K_SPACE and self.room_cleared:
-            self.room_i += 1
-            if self.room_i >= len(self.rooms):
-                pass
-            else:
-                self._enter_room(self.rooms[self.room_i])
+        if e.type == pg.KEYDOWN:
+            if e.key == pg.K_ESCAPE:
+                self.next_scene = "menu"
+                return
+            if e.key == pg.K_n:
+                if self.room_cleared and self.current_room.kind == "boss":
+                    self._advance_floor()
+        if e.type == pg.MOUSEBUTTONDOWN:
+            if e.button == 1:
+                self.sfx_arrow_shot.play()
 
     def update(self, dt: float) -> None:
         if self.entry_freeze > 0:
             self.entry_freeze -= dt
             return      # skip updating while frozen
 
-        room = self.room
-        walls = room.walls()
+        room = self.current_room
+        walls = room.wall_rects()
 
-        keys = pg.key.get_pressed()
-        mx, my = pg.mouse.get_pos()
-        win_w, win_h = self.app.window.get_size()
-        scale_x = win_w / S.BASE_W
-        scale_y = win_h / S.BASE_H
-        mpos = (mx / scale_x, my / scale_y)
-        mbtn = pg.mouse.get_pressed(3)
-        self.player.update(dt, keys, mpos, mbtn, self.projectiles, walls)
+        keys = pg.key.get_pressed(); mouse_buttons = pg.mouse.get_pressed(); mouse_pos = pg.mouse.get_pos()
+        
+        # Camera
+        self.camera.follow(self.player.x, self.player.y)
+        self.camera.clamp_to_room(self.current_room.world_rect)
+        
+        # Convert to world-space for aiming
+        world_mouse = self.camera.screen_to_world(mouse_pos[0], mouse_pos[1])
 
         # For hitstop
         dt *= self.timescale
@@ -111,14 +261,21 @@ class RunScene(Scene):
             if self.hitstop_timer <= 0:
                 self.timescale = 1.0
 
+        # Torches
+        update_torches(self.torches, dt)
+        
+        # Player
+        self.player.update(dt, keys, mouse_buttons, world_mouse, walls, self.projectiles)
+
         # Player projectiles
         for p in self.projectiles: p.update(dt, walls)
         self.projectiles = [p for p in self.projectiles if p.alive]
 
         # Enemy projectiles
         for e in self.enemies:
-            e.update(dt, self.player.center(), self.e_projectiles, walls)
-        for p in self.e_projectiles: p.update(dt, walls)
+            e.update(dt, self.player.center(), walls, self.e_projectiles)
+        for p in self.e_projectiles:
+            p.update(dt, walls)
         self.e_projectiles = [p for p in self.e_projectiles if p.alive]
 
         # Projectile vs enemy
@@ -150,9 +307,19 @@ class RunScene(Scene):
                     self.sfx_player_hit.play()
                     self.timescale = 0.05; self.hitstop_timer = 0.02
 
+        # Item
+        if self.item_pickup:
+            self.item_pickup.update(dt, self.player)
+            if not self.item_pickup.alive:
+                item_obj = get_item_by_name(self.item_pickup.item_id)
+                if item_obj is not None:
+                    self.player.apply_item(item_obj)
+                    self.message = f"{item_obj.name}, {item_obj.desc}"
+                self.item_pickup = None
+
         # Boss
         if self.boss:
-            self.boss.update(dt, self.player.center(), self.e_projectiles, self.enemies, walls)
+            self.boss.update(dt, self.player.center(), walls, self.e_projectiles)
             if self.boss.rect().colliderect(self.player.rect()):
                 if self.player.take_damage(self.boss.touch_damage):
                     self.sfx_player_hit.play()
@@ -160,18 +327,36 @@ class RunScene(Scene):
 
         for p in self.projectiles:
             if self.boss and self.boss.alive and p.rect().colliderect(self.boss.rect()):
-                self.boss.hp -= p.damage; p.alive = False
+                self.boss.hp -= p.damage
+                p.alive = False
                 if self.boss.hp <= 0:
+                    if self.floor_i >= S.FLOORS - 1:
+                        self.app.final_score = int(self.score)
+                        self.next_scene = "victory"
                     self.boss = None
                     self.score += S.SCORE_PER_BOSS
                     self.room_cleared = True
-                    self.message = "Boss defeated! Press Space for next room"
+                    self.message = "Boss defeated!"
+                    try:
+                        name = random.choice(ITEMS).name
+                        preferred = (self.current_room.world_rect.centerx, self.current_room.world_rect.centery)
+                        sx, sy = self._find_free_spot(preferred, self.walls, w=16, h=16)
+                        self.item_pickup = ItemPickup(sx, sy, item_id=name)
+                    except Exception:
+                        # fallback: center
+                        r = self.current_room.world_rect
+                        self.item_pickup = ItemPickup(r.centerx, r.centery, item_id=random.choice(ITEMS).name)
 
         # Room clearance
-        if not self.boss and not self.enemies and not self.item_available and not self.room_cleared:
-            self.room_cleared = True
-            self.score += S.SCORE_PER_ROOM
-            self.message = "Room cleared! Press Space for next room."
+        if (self.current_room.kind in ("combat", "boss") and
+            not self.enemies and (not self.boss or self.boss.hp <= 0)):
+            if not self.current_room.cleared:
+                self.current_room.cleared = True
+                self.score += S.SCORE_PER_ROOM
+                self.message = "Room cleared!"
+                for d in self.current_room.doors.values():
+                    d.open = True
+                self.walls = self.current_room.wall_rects()
 
         # Time decay
         self.time_decay += dt
@@ -179,16 +364,21 @@ class RunScene(Scene):
             self.time_decay -= 1.0
             self.score -= S.SCORE_DECAY_PER_SEC
 
-        # Room advance (N): if at end of floor
-        if self.room_i >= len(self.rooms):
-            if self.floor_i + 1 >= S.FLOORS:
-                self.app.final_score = int(self.score)
-                self.next_scene = "gameover"
-            else:
-                self.floor_i += 1
-                self.rooms = generate_floor(self.floor_i).rooms
-                self.room_i = 0
-                self._enter_room(self.rooms[self.room_i])
+        # Room advance
+        if self.current_room.doors:
+            prect = self.player.rect()
+            for side, door in self.current_room.doors.items():
+                if not door.open:
+                    continue
+                if prect.colliderect(door.rect):
+                    gx, gy = self.current_gp
+                    if side == "N": nxt = (gx, gy-1)
+                    elif side == "S": nxt = (gx, gy+1)
+                    elif side == "W": nxt = (gx-1, gy)
+                    else: nxt = (gx+1, gy)
+                    if nxt in self.rooms:
+                        self._enter_room(nxt, from_dir={"N":"S","S":"N","W":"E","E":"W"}[side])
+                        break
 
         # Player death
         if self.player.hp <= 0:
@@ -196,21 +386,30 @@ class RunScene(Scene):
             self.next_scene = "gameover"
 
     def draw(self, surf: pg.Surface) -> None:
-        surf.fill((26,22,32))
-        self.rooms[self.room_i].draw(surf)
-        for p in self.projectiles: p.draw(surf)
-        for p in self.e_projectiles: p.draw(surf)
-        self.player.draw(surf)
-        for e in self.enemies: e.draw(surf)
+        w, h = S.BASE_W, S.BASE_H
+        self.current_room.draw(surf, camera=self.camera)
+        draw_torches(surf, self.camera, self.torches)
+        for p in self.projectiles: p.draw(surf, camera=self.camera)
+        for p in self.e_projectiles: p.draw(surf, camera=self.camera)
+        for e in self.enemies: e.draw(surf, camera=self.camera)
+        self.player.draw(surf, camera=self.camera)
+        if self.item_pickup and self.item_pickup.alive:
+            self.item_pickup.draw(surf, camera=self.camera)
+        if self.boss:
+            self.boss.draw(surf, camera=self.camera)
+            pg.draw.rect(surf, (60,40,40), (100, 100, w - 240, 6))
+            hpw = int((w-240) * max(0, self.boss.hp) / self.boss.max_hp)
+            pg.draw.rect(surf, (200,80,80), (100, 100, hpw, 6))
+            txt = self.app.font.render(f"{self.boss.name}", True, S.RED)
+            surf.blit(txt, (surf.get_width()//2 - txt.get_width()//2, 48))
+        if self.current_room.kind == "boss" and self.room_cleared and not self.boss:
+            hint = self.app.font.render("Press N to advance to next floor", True, (230,230,230))
+            surf.blit(hint, (surf.get_width()//2 - hint.get_width()//2, surf.get_height()-72))
         if self.message:
             txt = self.app.font.render(self.message, True, (220,220,220))
-            surf.blit(txt, (surf.get_width()//2 - txt.get_width()//2, surf.get_height()-16))
-        # Boss
-        if self.boss:
-            self.boss.draw(surf)
-            pg.draw.rect(surf, (60,40,40), (20, 28, 280, 6))
-            hpw = int(280 * max(0, self.boss.hp) / self.boss.max_hp)
-            pg.draw.rect(surf, (200,80,80), (20, 28, hpw, 6))
-        # HUD
-        draw_hud(surf, self.app.font, self.player.hp, self.max_hp, int(self.score), self.floor_i, self.room_i)
-
+            surf.blit(txt, (surf.get_width()//2 - txt.get_width()//2, surf.get_height()-48))
+        apply_lighting(surf, self.camera, self.torches)
+        draw_edge_fade(surf, self.camera, self.current_room.world_rect)
+        draw_hud(surf, self.app.font, self.player.hp, self.player.stats.hp, int(self.score), self.floor_i)
+        draw_minimap(surf, self.rooms, self.current_gp)
+        self.camera.follow(self.player.x, self.player.y)

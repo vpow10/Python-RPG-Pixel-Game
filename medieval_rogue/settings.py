@@ -1,9 +1,42 @@
 from __future__ import annotations
 
 
-BASE_W, BASE_H = 320, 180   # logical pixels
-SCALE = 4                   # window = BASE * SCALE
+# PLAN:
+# floor, walls, small enemies, pickups, objects, ui icons = 32x32 pixels
+# player, regular enemies = 64x64 pixels
+# projectiles = 16x16 pixels, big spells 32x32 pixels
+# boss sprites = 96x96 pixels, maybe 128x128 pixels
+
+
+# Logical resolution and scaling
+BASE_W, BASE_H = 1280, 736  # logical pixels
+SCALE = 1                   # window = BASE * SCALE
 FPS = 60
+
+# Visual framing / margins
+VIEW_GUTTER = 80
+EDGE_FADE = 160
+ROOM_INSET = 32
+EDGE_FADE_START_SHIFT = 16
+
+# Sprite / hitbox sizing
+PLAYER_SPRITE_SIZE = 64
+PLAYER_HITBOX = (24, 48)
+
+ENEMY_SPRITE_SIZE = 64
+ENEMY_HITBOX = (24, 48)
+SMALL_ENEMY_HITBOX = (24, 24)
+
+BOSS_SPRITE_SIZE = 96
+BOSS_HITBOX = (64, 64)
+
+PROJECTILE_SPRITE_SIZE = 16
+ITEM_SPRITE_SIZE = 32
+
+# Tile and rendering settings
+TILE_SIZE = 32
+SMOOTH_SCALE = False
+DEBUG_DRAW_HITBOXES = False
 
 # Colors
 BLACK = (0, 0, 0)
@@ -14,6 +47,11 @@ RED = (220, 70, 70)
 GREEN = (80, 200, 120)
 BLUE = (80, 140, 220)
 YELLOW = (240, 200, 80)
+FLOOR_COLOR = (26, 22, 32)
+BORDER_COLOR = (50, 40, 60)
+OBSTACLES_COLOR = (60, 50, 70)
+DOOR_OPEN_COLOR = (160, 130, 40)
+DOOR_CLOSED_COLOR = (80, 50, 20)
 
 # Player base stats
 PLAYER_BASE_HP = 4
@@ -32,5 +70,32 @@ SCORE_DECAY_PER_SEC = 1
 FLOORS = 3
 ROOM_ENEMY_MIN = 3
 ROOM_ENEMY_MAX = 6
-RANDOM_SEED = None  # set to an int for deterministic runs
-SAFE_RADIUS = 64
+RANDOM_SEED = None  # set to an int for deterministic runs, 4 -> item room up top 
+SAFE_RADIUS = 192
+
+# HUD anchoring
+BORDER = 8
+UI_SAFE_TOP = 0 # reserved space at top inside gutter (0 = use gutter itself)
+UI_SAFE_RIGHT = 0
+UI_SAFE_BOTTOM = 0
+UI_SAFE_LEFT = 0
+
+# Dungeon / Rooms
+WALL_THICKNESS = 24
+ROOM_CELL_W = BASE_W
+ROOM_CELL_H = BASE_H
+DOOR_THICKNESS = 32
+DOOR_LENGTH = 64
+MIN_ROOMS = 6
+MAX_ROOMS = 12
+DEBUG_MINIMAP = False
+DEBUG_ROOMS = False
+WALL_TILE_WEIGHTS = [100, 100, 100, 100, 40, 10, 5, 1]
+OBS_TILE_WEIGHTS  = [100, 100, 100, 100, 40, 10, 5, 1]
+FLOOR_TILE_WEIGHTS = [100, 80, 80, 60, 20, 10, 2, 1]
+LIGHT_RADIUS = 260
+AMBIENT_LIGHT = 0.55
+
+# Debug / testing
+FORCE_BOSS_IN_START_ROOM = False
+FORCE_BOSS_ID = None
