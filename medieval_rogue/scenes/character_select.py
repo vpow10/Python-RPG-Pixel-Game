@@ -4,8 +4,8 @@ from medieval_rogue import settings as S
 from medieval_rogue.scene_manager import Scene
 from medieval_rogue.entities.player_classes import PLAYER_CLASSES
 from assets.sprite_manager import AnimatedSprite, load_strip
-from medieval_rogue.utils import resource_path
-import os
+from medieval_rogue.save.profile import is_unlocked
+
 
 class CharacterSelect(Scene):
     def __init__(self, app) -> None:
@@ -35,7 +35,11 @@ class CharacterSelect(Scene):
             elif e.key in (pg.K_RIGHT, pg.K_d):
                 self.index = (self.index + 1) % len(self.options)
             elif e.key in (pg.K_RETURN, pg.K_SPACE):
-                self.app.chosen_class = self.options[self.index]
+                hero = self.options[self.index]
+                if hero.id == "knight" and not is_unlocked("knight"):
+                    return
+                self.app.chosen_class = hero
+                self.app.continue_data = None
                 self.next_scene = "run"
             elif e.key == pg.K_ESCAPE:
                 self.next_scene = "menu"
@@ -72,6 +76,7 @@ class CharacterSelect(Scene):
 
         # current hero card area
         hero = self.options[self.index]
+        locked = (hero.id == "knight") and (not is_unlocked("knight"))
         card_w, card_h = 480, 330
         card_x = panel_x + (panel_w - card_w) // 2
         card_y = panel_y + 64
@@ -139,6 +144,12 @@ class CharacterSelect(Scene):
             # fallback: draw placeholder rectangle
             placeholder = self.app.font_small.render("No sprite", True, (200,200,200))
             surf.blit(placeholder, (preview_area_x - placeholder.get_width()//2, preview_area_y))
+        if locked:
+            overlay = pg.Surface((card_w, card_h), pg.SRCALPHA)
+            overlay.fill((0,0,0,160))
+            surf.blit(overlay, (card_x, card_y))
+            lock_txt = self.app.font.render("LOCKED", True, (255, 80, 80))
+            surf.blit(lock_txt, (card_x + card_w//2 - lock_txt.get_width()//2, card_y + card_h//2 - 20))
 
     def _wrap_text(self, text: str, font: pg.font.Font, max_width: int) -> list[str]:
         """Utility: simple word wrap for small blocks."""
