@@ -42,6 +42,7 @@ class RunScene(Scene):
             stats = PlayerStats()
         self.player = Player(S.BASE_W//2, S.BASE_H//2, stats=stats, cls=pc if pc else "archer")
         self.player.sfx_shot = self.sounds.get("arrow_shot")
+        self.app.last_run_class_id = self.player.cls.id
 
         self.projectiles = []; self.e_projectiles = []; self.enemies = []
         self.boss = None; self.torches = []; self.item_pickup = None

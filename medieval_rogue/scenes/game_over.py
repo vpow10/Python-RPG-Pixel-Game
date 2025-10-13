@@ -3,7 +3,8 @@ import pygame as pg
 from medieval_rogue import settings as S
 from medieval_rogue.scene_manager import Scene
 from medieval_rogue.save.save import save_highscore
-
+from medieval_rogue.save.profile import record_run_finished
+from medieval_rogue.save.run_state import clear_run_save
 
 # Placeholder for now
 class GameOver(Scene):
@@ -11,6 +12,7 @@ class GameOver(Scene):
         super().__init__(app)
         self.saved = False
         self.name = "YOU"
+        self.class_id = getattr(self.app, "last_run_class_id", "archer")
 
     def handle_event(self, e: pg.event.Event) -> None:
         if e.type == pg.KEYDOWN:
@@ -23,9 +25,17 @@ class GameOver(Scene):
                 if not self.saved:
                     save_highscore(self.name, self.app.final_score)
                     self.saved = True
+                    record_run_finished(win=False, class_id=self.class_id)
+                    clear_run_save()
                     self.next_scene = "menu"
-                if e.key == pg.K_r: self.next_scene = "run"
-                if e.key == pg.K_ESCAPE: self.next_scene = "menu"
+                if e.key == pg.K_r:
+                    record_run_finished(win=False, class_id=self.class_id)
+                    clear_run_save()
+                    self.next_scene = "run"
+                if e.key == pg.K_ESCAPE:
+                    record_run_finished(win=False, class_id=self.class_id)
+                    clear_run_save()
+                    self.next_scene = "menu"
         
     def draw(self, surf: pg.Surface) -> None:
         w, h = surf.get_size()

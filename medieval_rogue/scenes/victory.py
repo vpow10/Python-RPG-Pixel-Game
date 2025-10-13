@@ -3,6 +3,8 @@ import pygame as pg
 from medieval_rogue import settings as S
 from medieval_rogue.scene_manager import Scene
 from medieval_rogue.save.save import save_highscore
+from medieval_rogue.save.profile import record_run_finished
+from medieval_rogue.save.run_state import clear_run_save
 
 
 class Victory(Scene):
