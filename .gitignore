@@ -5,3 +5,4 @@ highscores.json
 build/
 *.spec
 profile.json
+run_state.json

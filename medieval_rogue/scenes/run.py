@@ -101,15 +101,17 @@ class RunScene(Scene):
 
         self.walls = self.current_room.wall_rects()
         self.torches = compute_torches_for_room(self.current_room)
-        self.enemies.clear()
-        self.projectiles.clear()
-        self.e_projectiles.clear()
-        self.boss = None
-        self.item_available = None
+        self.enemies.clear(); self.projectiles.clear() ;self.e_projectiles.clear()
+        self.boss = None; self.item_available = None
         
         self._place_player_on_entry(from_dir)
         self.camera.center_on(self.player.x, self.player.y)
         self.camera.clamp_to_room(self.current_room.world_rect)
+        
+        self._checkpoint = {
+            "entry_gp": [self.current_gp[0], self.current_gp[1]],
+            "player_entry": pack_player(self.player),
+        }
 
         if self.current_room.kind == "combat":
             if not self.current_room.cleared:
@@ -243,20 +245,92 @@ class RunScene(Scene):
         r = self.current_room.world_rect
         boss_id = self._next_boss_id()
         self.boss = create_boss(boss_id, r.centerx, r.centery)
+        
+    def _save_and_quit_to_menu(self) -> None:
+        world = pack_rooms(self.rooms)
+        cx, cy = int(self.player.x), int(self.player.y)
+        data = {
+            "version": 1,
+            "run_seed": int(self.run_seed),
+            "floor_i": int(self.floor_i),
+            "current_gp": [int(self.current_gp[0]), int(self.current_gp[1])],
+            "rooms": world,
+            "checkpoint": self._checkpoint,
+            "resume": {
+                "mid_room": not self.current_room.cleared and self.current_room.kind == "combat",
+                "player_pos": [cx, cy],
+            },
+            "player_entry_class": self._checkpoint["player_entry"]["class_id"],
+            "score": int(self.score),
+        }
+        save_run_state(data)
+        self.next_scene = "menu"
+        
+    def _load_from_save(self, data: dict) -> None:
+        self.run_seed = int(data["run_seed"])
+        self.floor_i = int(data["floor_i"])
+        floor_rng = random.Random(f"{self.run_seed}-F{self.floor_i}-GEN")
+        self.floor = generate_floor(self.floor_i, rng=floor_rng)
+        self.rooms = self.floor.rooms
+        
+        for key, flags in data.get("rooms", {}).items():
+            gp = tuple(int(x) for x in key.split(","))
+            r = self.rooms.get(gp)
+            if not r: continue
+            r.kind = flags.get("kind", r.kind)
+            r.visited = flags.get("visited", False)
+            r.discovered = flags.get("discovered", False)
+            r.cleared = flags.get("cleared", False)
+            
+        self.current_gp = tuple(data["current_gp"])
+        self.current_room = self.rooms[self.current_gp]
+        self.current_room.compute_doors(self._neighbors_of(self.current_gp))
+        
+        entry = data["checkpoint"]["player_entry"]
+        pc = getattr(self.app, "selected_class", None)
+        saved_class_id = entry.get("class_id", "archer")
+        self.player.hp = int(entry["hp"])
+        st = entry["stats"]
+        self.player.stats.hp = int(st["hp"])
+        self.player.stats.damage = float(st["damage"])
+        self.player.stats.speed = float(st["speed"])
+        self.player.stats.firerate = float(st["firerate"])
+        self.player.stats.proj_speed = float(st["proj_speed"])
+        self.player.inventory = list(entry.get("inventory", []))
+        
+        self._enter_room(self.current_gp, from_dir=None)
+        
+        resume = data.get("resume", {})
+        if not resume.get("mid_room", False):
+            px, py = resume.get("player_pos", [self.player.x, self.player.y])
+            self.player.set_position(px, py)
+            self.camera.center_on(px, py)
 
     def handle_event(self, e: pg.event.Event) -> None:
         if e.type == pg.KEYDOWN:
             if e.key == pg.K_ESCAPE:
-                self.next_scene = "menu"
+                self.pause = not self.pause
                 return
             if e.key == pg.K_n:
                 if self.room_cleared and self.current_room.kind == "boss":
                     self._advance_floor()
+        if self.pause:
+            if e.type == pg.KEYDOWN:
+                if e.key in (pg.K_UP, pg.K_w): self.pause_index = (self.pause_index - 1) % 2
+                if e.key in (pg.K_DOWN, pg.K_s): self.pause_index = (self.pause_index + 1) % 2
+                if e.key in (pg.K_RETURN, pg.K_SPACE):
+                    if self.pause_index == 0:
+                        self.pause = False
+                    else:
+                        self._save_and_quit_to_menu()
+            return
         if e.type == pg.MOUSEBUTTONDOWN:
             if e.button == 1:
                 self.sfx_arrow_shot.play()
 
     def update(self, dt: float) -> None:
+        if self.pause:
+            return
         if self.entry_freeze > 0:
             self.entry_freeze -= dt
             return      # skip updating while frozen
@@ -351,6 +425,7 @@ class RunScene(Scene):
                 if self.boss.hp <= 0:
                     self.boss = None
                     self.score += S.SCORE_PER_BOSS
+                    record_boss_defeated()
                     self.room_cleared = True
                     if self.floor_i >= S.FLOORS - 1:
                         self.app.final_score = int(self.score)
@@ -371,6 +446,7 @@ class RunScene(Scene):
             not self.enemies and (not self.boss or self.boss.hp <= 0)):
             if not self.current_room.cleared:
                 self.current_room.cleared = True
+                record_room_cleared()
                 self.score += S.SCORE_PER_ROOM
                 self.message = "Room cleared!"
                 for d in self.current_room.doors.values():
@@ -423,7 +499,7 @@ class RunScene(Scene):
             surf.blit(txt, (surf.get_width()//2 - txt.get_width()//2, 48))
         if self.current_room.kind == "boss" and self.room_cleared and not self.boss:
             hint = self.app.font.render("Press N to advance to next floor", True, (230,230,230))
-            surf.blit(hint, (surf.get_width()//2 - hint.get_width()//2, surf.get_height()-72))
+            surf.blit(hint, (surf.get_width()//2 - hint.get_width()//2, surf.get_height()-96))
         if self.message:
             txt = self.app.font.render(self.message, True, (220,220,220))
             surf.blit(txt, (surf.get_width()//2 - txt.get_width()//2, surf.get_height()-48))
@@ -432,3 +508,22 @@ class RunScene(Scene):
         draw_hud(surf, self.app.font, self.player.hp, self.player.stats.hp, int(self.score), self.floor_i)
         draw_minimap(surf, self.rooms, self.current_gp)
         self.camera.follow(self.player.x, self.player.y)
+        
+        if self.pause:
+            w, h = surf.get_size()
+            pg.draw.rect(surf, (0,0,0,180), (0,0,w,h))
+            panel = pg.Surface((420, 220), pg.SRCALPHA)
+            panel.fill((20,24,32,230))
+            x = w//2 - panel.get_width()//2
+            y = h//2 - panel.get_height()//2
+            surf.blit(panel, (x,y))
+            title = self.app.font.render("Paused", True, (230,230,230))
+            surf.blit(title, (w//2 - title.get_width()//2, y + 24))
+            opts = ["Resume", "Save & Quit to Menu"]
+            for i, label in enumerate(opts):
+                sel = (i == self.pause_index)
+                col = (255,255,255) if sel else (160,160,160)
+                row = self.app.font_small.render(label, True, col)
+                surf.blit(row, (w//2 - row.get_width()//2, y + 90 + 44 * i))
+            seed = self.app.font_small.render(f"Seed: {self.run_seed}", True, (210,210,210))
+            surf.blit(seed, (w//2 - seed.get_width()//2, surf.get_height() - 96))
