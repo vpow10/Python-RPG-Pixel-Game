@@ -3,11 +3,11 @@ import pygame as pg, random, math
 from medieval_rogue import settings as S
 from medieval_rogue.scene_manager import Scene
 from medieval_rogue.entities.player import Player, PlayerStats
+from medieval_rogue.entities.player_classes import PLAYER_CLASSES, PlayerClass
 from medieval_rogue.entities.enemy_registry import BOSSES
-from medieval_rogue.entities.projectile import Projectile
-from medieval_rogue.entities.enemy_registry import create_boss, spawn_from_pattern, SPAWN_PATTERNS, pick_spawn_pattern
+from medieval_rogue.entities.enemy_registry import create_boss, spawn_from_pattern, pick_spawn_pattern
 from medieval_rogue.dungeon.generation import generate_floor
-from medieval_rogue.dungeon.room import Room, Direction
+from medieval_rogue.dungeon.room import Direction
 from medieval_rogue.items.basic_items import get_item_by_name, ITEMS
 from medieval_rogue.ui.hud import draw_hud
 from medieval_rogue.ui.minimap import draw_minimap
@@ -16,9 +16,17 @@ from medieval_rogue.camera import Camera
 from medieval_rogue.entities.pickups import ItemPickup
 from medieval_rogue.ui.edge_fade import draw_edge_fade
 from medieval_rogue.ui.lighting import compute_torches_for_room, update_torches, draw_torches, apply_lighting
-from medieval_rogue.save.run_state import save_run_state, load_run_save, clear_run_save, has_run_save, pack_player, pack_rooms
+from medieval_rogue.save.run_state import save_run_state, pack_player, pack_rooms
 from medieval_rogue.save.profile import record_run_started, record_boss_defeated, record_room_cleared
 
+
+def resolve_player_class(x) -> PlayerClass:
+    """Accepts a PlayerClass, a class id string, or None; returns a PlayerClass."""
+    if isinstance(x, PlayerClass):
+        return x
+    if isinstance(x, str):
+        return PLAYER_CLASSES.get(x, PLAYER_CLASSES["archer"])
+    return PLAYER_CLASSES["archer"]
 
 class RunScene(Scene):
     def __init__(self, app):
@@ -28,31 +36,36 @@ class RunScene(Scene):
         self.pause = False
         self.pause_index = 0  # 0=Resume, 1=Save & Quit
 
-        self.sounds = load_sounds()
-        pc = getattr(self.app, "chosen_class", None)
-        if pc is not None:
-            stats = PlayerStats(
-                hp = pc.hp,
-                speed = pc.speed,
-                firerate = pc.firerate,
-                proj_speed = pc.proj_speed,
-                damage = pc.damage,
-            )
-        else:
-            stats = PlayerStats()
-        self.player = Player(S.BASE_W//2, S.BASE_H//2, stats=stats, cls=pc if pc else "archer")
-        self.player.sfx_shot = self.sounds.get("arrow_shot")
-        self.app.last_run_class_id = self.player.cls.id
-
-        self.projectiles = []; self.e_projectiles = []; self.enemies = []
-        self.boss = None; self.torches = []; self.item_pickup = None
-
         cont = getattr(app, "continue_data", None)
         if cont:
+            saved_cls_id = (
+                cont.get("player_entry_class")
+                or cont.get("checkpoint", {}).get("player_entry", {}).get("class_id")
+                or "archer"
+            )
+            pclass = resolve_player_class(saved_cls_id)
             self.run_seed = int(cont.get("run_seed", random.randrange(2**31)))
         else:
             self.run_seed = random.randrange(2**31)
+            pc = getattr(app, "chosen_class", None)
+            pclass = resolve_player_class(pc or "archer")
             record_run_started()
+        
+        stats = PlayerStats(
+            hp=pclass.hp,
+            speed=pclass.speed,
+            firerate=pclass.firerate,
+            proj_speed=pclass.proj_speed,
+            damage=pclass.damage,
+        )
+
+        self.sounds = load_sounds()
+        self.player = Player(S.BASE_W//2, S.BASE_H//2, stats=stats, cls=pclass)
+        self.player.sfx_shot = self.sounds.get("arrow_shot")
+        self.app.last_run_class_id = pclass.id
+
+        self.projectiles = []; self.e_projectiles = []; self.enemies = []
+        self.boss = None; self.torches = []; self.item_pickup = None
 
         self.floor_i = 0
         self.score = 10
