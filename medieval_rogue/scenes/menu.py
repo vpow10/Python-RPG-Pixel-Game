@@ -2,16 +2,23 @@ from __future__ import annotations
 import pygame as pg
 from medieval_rogue import settings as S
 from medieval_rogue.scene_manager import Scene
+from medieval_rogue.save.run_state import has_run_save, load_run_save, clear_run_save
+from medieval_rogue.save.profile import load_profile
 
 
 class Menu(Scene):
     def __init__(self, app) -> None:
         super().__init__(app)
-        self.options = [
+        opts = []
+        if has_run_save():
+            opts.append(("Continue", "continue"))
+        opts.extend([
             ("Start", "charselect"),
-            ("High Scores", "highscores"),
-            ("Quit", None)    
-        ]
+            ("Stats", "stats"),
+            ("High scores", "highscores"),
+            ("Quit", None),
+        ])
+        self.options = opts
         self.index = 0
     
     def handle_event(self, e: pg.event.Event) -> None:
@@ -20,7 +27,10 @@ class Menu(Scene):
             elif e.key in (pg.K_UP, pg.K_w): self.index = (self.index - 1) % len(self.options)
             elif e.key in (pg.K_RETURN, pg.K_SPACE):
                 label, target = self.options[self.index]
-                if target: self.next_scene = target
+                if target == "continue":
+                    self.app.continue_data = load_run_save()
+                    self.next_scene = "run"
+                elif target: self.next_scene = target
                 else: self.app.running = False
     
     def update(self, dt: float) -> None: ...

@@ -9,6 +9,7 @@ from medieval_rogue.scenes.run import RunScene
 from medieval_rogue.scenes.game_over import GameOver
 from medieval_rogue.scenes.highscores import HighScores
 from medieval_rogue.scenes.victory import Victory
+from medieval_rogue.scenes.stats import Stats
 import medieval_rogue.entities
 
 
@@ -41,6 +42,7 @@ def run() -> None:
     sm.register("gameover", GameOver)
     sm.register("highscores", HighScores)
     sm.register("victory", Victory)
+    sm.register("stats", Stats)
     sm.switch("menu")
     
     while app.running:
