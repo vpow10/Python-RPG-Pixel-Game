@@ -12,6 +12,7 @@ class Victory(Scene):
         super().__init__(app)
         self.saved = False
         self.name = "YOU"
+        self.class_id = getattr(self.app, "last_run_class_id", "archer")
         
     def handle_event(self, e: pg.event.Event) -> None:
         if e.type == pg.KEYDOWN:
@@ -19,10 +20,16 @@ class Victory(Scene):
                 if not self.saved:
                     save_highscore(self.name, self.app.final_score)
                     self.saved = True
-                    self.next_scene = "menu"
+                record_run_finished(win=True, class_id=self.class_id)
+                clear_run_save()
+                self.next_scene = "menu"
             elif e.key == pg.K_r:
+                record_run_finished(win=True, class_id=self.class_id)
+                clear_run_save()
                 self.next_scene = "run"
             elif e.key == pg.K_ESCAPE:
+                record_run_finished(win=True, class_id=self.class_id)
+                clear_run_save()
                 self.next_scene = "menu"
             elif e.key == pg.K_BACKSPACE:
                 self.name = self.name[:-1]
