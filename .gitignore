@@ -4,3 +4,4 @@ __pycache__/
 highscores.json
 build/
 *.spec
+profile.json

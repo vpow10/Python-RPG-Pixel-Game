@@ -16,14 +16,19 @@ from medieval_rogue.camera import Camera
 from medieval_rogue.entities.pickups import ItemPickup
 from medieval_rogue.ui.edge_fade import draw_edge_fade
 from medieval_rogue.ui.lighting import compute_torches_for_room, update_torches, draw_torches, apply_lighting
+from medieval_rogue.save.run_state import save_run_state, load_run_save, clear_run_save, has_run_save, pack_player, pack_rooms
+from medieval_rogue.save.profile import record_run_started, record_boss_defeated, record_room_cleared
 
 
 class RunScene(Scene):
     def __init__(self, app):
         super().__init__(app)
         self.camera = Camera()
+        self.timescale = 1.0; self.hitstop_timer = 0.0; self.entry_freeze = 0.4; self.time_decay = 0.0
+        self.pause = False
+        self.pause_index = 0  # 0=Resume, 1=Save & Quit
+
         self.sounds = load_sounds()
-        # create player from chosen class if the character select set it on the app.
         pc = getattr(self.app, "chosen_class", None)
         if pc is not None:
             stats = PlayerStats(
@@ -37,36 +42,49 @@ class RunScene(Scene):
             stats = PlayerStats()
         self.player = Player(S.BASE_W//2, S.BASE_H//2, stats=stats, cls=pc if pc else "archer")
         self.player.sfx_shot = self.sounds.get("arrow_shot")
-        self.projectiles: list[Projectile] = []
-        self.e_projectiles: list[Projectile] = []
-        self.enemies = []
-        self.boss = None
-        self.torches = []
-        self.floor = generate_floor(0)
-        self.rooms: dict[tuple[int,int], Room] = self.floor.rooms
+
+        self.projectiles = []; self.e_projectiles = []; self.enemies = []
+        self.boss = None; self.torches = []; self.item_pickup = None
+
+        cont = getattr(app, "continue_data", None)
+        if cont:
+            self.run_seed = int(cont.get("run_seed", random.randrange(2**31)))
+        else:
+            self.run_seed = random.randrange(2**31)
+            record_run_started()
+
+        self.floor_i = 0
+        self.score = 10
+        self.boss_history = []
+        self.boss_pool = list(BOSSES.keys())
+
+        # build floor with deterministic rng
+        floor_rng = random.Random(f"{self.run_seed}-F{self.floor_i}-GEN")
+        self.floor = generate_floor(self.floor_i, rng=floor_rng)
+        self.rooms = self.floor.rooms
         self.current_gp = self.floor.start
-        self.current_room: Room = self.rooms[self.current_gp]
+        self.current_room = self.rooms[self.current_gp]
         self.current_room.visited = True
         for _, r in self._neighbors_of(self.current_gp).items():
             if r: r.discovered = True
-        if getattr(S, "FORCE_BOSS_IN_START_ROOM", False):
-            self.current_room.kind = "boss"
-            self.boss_cleared = False
-            self.message = ""
-        self.floor_i = 0; self.room_i = 0
-        self.max_hp = self.player.stats.hp
-        self.message = ""; self.room_cleared = False
-        self.item_pickup: ItemPickup | None = None
+
+        self.room_cleared = False
         self.item_picked = False
         self.boss_cleared = False
-        self.score = 10
-        self.boss_history: list[str] = []
-        self.boss_pool: list[str] = list(BOSSES.keys())
-        random.shuffle(self.boss_pool)
-        self.timescale = 1.0; self.hitstop_timer = 0.0; self.entry_freeze = 0.4; self.time_decay = 0.0
+        self.max_hp = self.player.stats.hp
+        self.message = ""
+
+        self.camera.center_on(self.player.x, self.player.y)
+        self.camera.clamp_to_room(self.current_room.world_rect)
+
+        if cont:
+            self._load_from_save(cont)
+            app.continue_data = None
+        else:
+            self._enter_room(self.current_gp, from_dir=None)
+            
         self.sfx_player_hit = self.sounds["player_hit"]; self.sfx_player_hit.set_volume(0.1)
         self.sfx_arrow_shot = self.sounds["arrow_shot"]; self.sfx_arrow_shot.set_volume(0.1)
-        self._enter_room(self.current_gp, from_dir=None)
 
     def _neighbors_of(self, gp):
         gx, gy = gp
@@ -171,7 +189,8 @@ class RunScene(Scene):
             self.app.final_score = int(self.score)
             self.next_scene = "victory"
             return
-        self.floor = generate_floor(self.floor_i)
+        floor_rng = random.Random(f"{self.run_seed}-F{self.floor_i}-GEN")
+        self.floor = generate_floor(self.floor_i, rng=floor_rng)
         self.rooms = self.floor.rooms
         self.current_gp = self.floor.start
         self._enter_room(self.current_gp, from_dir=None)
@@ -180,7 +199,7 @@ class RunScene(Scene):
         self.boss_cleared = False
 
     def _spawn_combat_wave(self) -> None:
-        rng = random.Random(S.RANDOM_SEED)
+        rng = random.Random(f"{self.run_seed}-F{self.floor_i}-R{self.current_gp[0]}_{self.current_gp[1]}")
         r = self.current_room.world_rect
         name = pick_spawn_pattern(self.current_room.w_cells, self.current_room.h_cells, rng)
         spawned = spawn_from_pattern(
