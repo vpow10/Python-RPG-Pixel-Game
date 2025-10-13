@@ -73,3 +73,19 @@ register_player_class(
         description="Powerful projectiles, but slow cast.",
     )
 )
+
+register_player_class(
+    PlayerClass(
+        id="knight",
+        name="Knight",
+        hp=6,
+        damage=4,
+        speed=180.0,
+        firerate=0.5,
+        proj_speed=None, # TODO: handle that
+        sprite_id="knight",
+        projectile_id=None,
+        description="Great defence skills, but short-ranged.",
+        special=None, #TODO: handle special abilities (shield block for knight)
+    )
+)
