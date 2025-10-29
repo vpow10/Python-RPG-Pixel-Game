@@ -167,6 +167,7 @@ class RunScene(Scene):
 
     def _advance_floor(self) -> None:
         self.floor_i += 1
+        self.message = ""
         if self.floor_i >= S.FLOORS:
             self.app.final_score = int(self.score)
             self.next_scene = "victory"
@@ -189,7 +190,7 @@ class RunScene(Scene):
             avoid_radius=getattr(S, "SAFE_RADIUS", 160)
         )
         self.enemies.extend(spawned)
-        self.message = f"Enemies: {len(spawned)}"
+        self.message = f"Enemies: {len(self.enemies)}"
 
     def _spawn_item(self) -> None:
         r = self.current_room.world_rect
@@ -404,7 +405,7 @@ class RunScene(Scene):
             surf.blit(txt, (surf.get_width()//2 - txt.get_width()//2, 48))
         if self.current_room.kind == "boss" and self.room_cleared and not self.boss:
             hint = self.app.font.render("Press N to advance to next floor", True, (230,230,230))
-            surf.blit(hint, (surf.get_width()//2 - hint.get_width()//2, surf.get_height()-72))
+            surf.blit(hint, (surf.get_width()//2 - hint.get_width()//2, surf.get_height()-96))
         if self.message:
             txt = self.app.font.render(self.message, True, (220,220,220))
             surf.blit(txt, (surf.get_width()//2 - txt.get_width()//2, surf.get_height()-48))
