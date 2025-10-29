@@ -290,7 +290,8 @@ class RunScene(Scene):
                         e.alive = False
                         self.score += S.SCORE_PER_ENEMY
                         # self.sfx_kill.play()
-        self.enemies = [e for e in self.enemies if e.alive]
+                        self.enemies = [e for e in self.enemies if e.alive]
+                        self.message = f"Enemies: {len(self.enemies)}"
 
         # Enemy projectile vs player
         for p in self.e_projectiles:
